@@ -15,6 +15,8 @@ vi.mock("./infrastructure/supabase/workspaceSiteRepository", () => ({
   insertCompanySite: vi.fn(),
   updateCompanySite: vi.fn(),
   deleteCompanySite: vi.fn(),
+  applyCompanySitesSortOrder: vi.fn(),
+  applyPersonalSitesSortOrder: vi.fn(),
   updatePersonalFavorite: vi.fn(),
   deletePersonalSite: vi.fn(),
 }));
@@ -94,7 +96,7 @@ describe("login gate", () => {
 
   beforeEach(() => {
     vi.mocked(getSupabaseBrowserClient).mockReturnValue(
-      createMockSupabase(null) as ReturnType<typeof getSupabaseBrowserClient>,
+      createMockSupabase(null) as unknown as ReturnType<typeof getSupabaseBrowserClient>,
     );
     vi.mocked(workspaceSiteRepository.fetchWorkspaceSiteRows).mockImplementation(
       async (_client, userId) => {

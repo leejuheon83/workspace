@@ -923,72 +923,89 @@ export default function EHubRedesign() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {visiblePersonal.map((site) => (
-              <div
-                key={site.id}
-                className="rounded-[24px] border border-[#e8eaed] bg-white p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_12px_rgba(60,64,67,0.15)]"
-              >
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1f3f4] text-[26px] leading-none"
-                      aria-hidden
-                    >
-                      {siteTitleEmoji(site.title, "personal")}
-                    </div>
-                    <div>
-                      <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#202124]">{site.title}</h3>
-                      <p className="mt-1 max-w-[180px] truncate text-sm text-[#5f6368]">{site.domain}</p>
-                    </div>
-                  </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onPersonalDragEnd}>
+            <SortableContext items={visiblePersonal.map((s) => s.id)} strategy={rectSortingStrategy}>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {visiblePersonal.map((site) => (
+                  <SortableItem
+                    key={site.id}
+                    id={site.id}
+                    sortEnabled={personalSortable}
+                    className="rounded-[24px] border border-[#e8eaed] bg-white p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_12px_rgba(60,64,67,0.15)]"
+                  >
+                    {(handle) => (
+                      <>
+                        <div className="mb-4 flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 flex-1 items-start gap-1">
+                            {handle}
+                            <div className="flex min-w-0 flex-1 items-start gap-4">
+                              <div
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1f3f4] text-[26px] leading-none"
+                                aria-hidden
+                              >
+                                {siteTitleEmoji(site.title, "personal")}
+                              </div>
+                              <div className="min-w-0">
+                                <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#202124]">
+                                  {site.title}
+                                </h3>
+                                <p className="mt-1 max-w-[180px] truncate text-sm text-[#5f6368]">
+                                  {site.domain}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
 
-                  <div className="flex items-center gap-2 text-[#9aa0a6]">
-                    <button
-                      type="button"
-                      aria-label={site.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                      className={`${site.favorite ? "text-[#fbbc04]" : ""} transition hover:text-[#5f6368]`}
-                      onClick={() => void onToggleFavorite(site)}
-                    >
-                      ★
-                    </button>
-                    <button
-                      type="button"
-                      className="transition hover:text-[#5f6368]"
-                      title="편집(준비 중)"
-                      disabled
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className="transition hover:text-[#d93025]"
-                      aria-label="삭제"
-                      onClick={() => void onDeletePersonal(site)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
+                          <div className="flex shrink-0 items-center gap-2 text-[#9aa0a6]">
+                            <button
+                              type="button"
+                              aria-label={site.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+                              className={`${site.favorite ? "text-[#fbbc04]" : ""} transition hover:text-[#5f6368]`}
+                              onClick={() => void onToggleFavorite(site)}
+                            >
+                              ★
+                            </button>
+                            <button
+                              type="button"
+                              className="transition hover:text-[#5f6368]"
+                              title="편집(준비 중)"
+                              disabled
+                            >
+                              ✎
+                            </button>
+                            <button
+                              type="button"
+                              className="transition hover:text-[#d93025]"
+                              aria-label="삭제"
+                              onClick={() => void onDeletePersonal(site)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
 
-                <div className="mb-4 inline-flex rounded-full bg-[#e8f0fe] px-3 py-1 text-xs font-medium text-[#1a73e8]">
-                  개인 링크
-                </div>
+                        <div className="mb-4 inline-flex rounded-full bg-[#e8f0fe] px-3 py-1 text-xs font-medium text-[#1a73e8]">
+                          개인 링크
+                        </div>
 
-                <p className="min-h-[44px] text-sm leading-6 text-[#5f6368]">{site.description}</p>
+                        <p className="min-h-[44px] text-sm leading-6 text-[#5f6368]">{site.description}</p>
 
-                <button
-                  type="button"
-                  data-testid={`open-${site.id}`}
-                  disabled={!isLoggedIn}
-                  className="mt-6 h-11 w-full rounded-full border border-[#dadce0] bg-white text-sm font-medium text-[#1a73e8] transition hover:bg-[#f8f9fa] disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => openSite(site.domain)}
-                >
-                  열기
-                </button>
+                        <button
+                          type="button"
+                          data-testid={`open-${site.id}`}
+                          disabled={!isLoggedIn}
+                          className="mt-6 h-11 w-full rounded-full border border-[#dadce0] bg-white text-sm font-medium text-[#1a73e8] transition hover:bg-[#f8f9fa] disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => openSite(site.domain)}
+                        >
+                          열기
+                        </button>
+                      </>
+                    )}
+                  </SortableItem>
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         </section>
       </div>
     </div>
