@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-hub</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f8f9fa;
+        --surface: #ffffff;
+        --surface2: #f1f3f4;
+        --text: #202124;
+        --muted: #5f6368;
+        --line: #dadce0;
+        --line2: #e8eaed;
+        --accent: #1a73e8;
+        --accent-hover: #1765cc;
+        --chip-text: #3c4043;
+        --star: #fbbc04;
+        --danger: #d93025;
+        --icon-muted: #9aa0a6;
+        --border2: #dadce0;
+        --red: #d93025;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: "Roboto", system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 15px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .shell {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 1.25rem 1.25rem 3rem;
+      }
+      @media (min-width: 1024px) {
+        .shell {
+          padding: 1.25rem 2rem 3rem;
+        }
+      }
+
+      .page-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+      @media (min-width: 640px) {
+        .page-header {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
+      }
+      .page-header__btns {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .page-header__tagline {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .page-header__right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+      }
+
+      .login-panel {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .login-input {
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 14px;
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.18s, box-shadow 0.18s;
+      }
+
+      .login-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 1px 4px rgba(26, 115, 232, 0.2);
+      }
+
+      .btn-pill {
+        height: 40px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--chip-text);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.18s, border-color 0.18s;
+      }
+      .btn-pill:hover {
+        background: var(--bg);
+      }
+      .btn-pill--primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+        padding: 0 20px;
+      }
+      .btn-pill--primary:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+      .btn-pill--danger {
+        color: var(--danger);
+        border-color: rgba(217, 48, 37, 0.35);
+      }
+      .btn-pill--danger:hover {
+        background: #fce8e6;
+      }
+
+      .hero-panel {
+        border-radius: 28px;
+        border: 1px solid var(--line2);
+        background: var(--surface2);
+        padding: 3.5rem 1.5rem;
+      }
+      @media (min-width: 640px) {
+        .hero-panel {
+          padding: 3.5rem 2.5rem;
+        }
+      }
+      .hero-panel__inner {
+        max-width: 48rem;
+        margin: 0 auto;
+        text-align: center;
+      }
+      .brand-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .brand-icon {
+        display: flex;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #e8f0fe;
+        color: var(--accent);
+        font-size: 18px;
+      }
+      .hero-heading {
+        font-size: 42px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      .hero-lead {
+        margin-bottom: 2rem;
+        font-size: 17px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .hero-search-bar {
+        display: flex;
+        max-width: 42rem;
+        margin: 0 auto;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        padding: 8px 8px 8px 4px;
+        box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+      }
+      .hero-search-bar:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 1px 4px rgba(26, 115, 232, 0.2);
+      }
+      .hero-search-bar input {
+        flex: 1;
+        height: 48px;
+        border: 0;
+        background: transparent;
+        padding: 0 16px;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--text);
+        outline: none;
+      }
+      .hero-search-bar input::placeholder {
+        color: #80868b;
+      }
+      .hero-search-bar button {
+        height: 44px;
+        padding: 0 28px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.18s;
+      }
+      .hero-search-bar button:hover {
+        background: var(--accent-hover);
+      }
+
+      .stats-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .stats-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .stat-card {
+        border-radius: 20px;
+        border: 1px solid var(--line2);
+        background: var(--surface);
+        padding: 1.25rem;
+        text-align: center;
+      }
+      .stat-card__num {
+        font-size: 28px;
+        font-weight: 500;
+        color: var(--accent);
+        line-height: 1.1;
+      }
+      .stat-card__lbl {
+        margin-top: 4px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .fav-block {
+        margin-top: 2.5rem;
+      }
+      .fav-block__title {
+        font-size: 20px;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+        color: var(--text);
+      }
+      .fav-block__count {
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+
+      .sites-section {
+        margin-top: 3rem;
+      }
+      .section-head {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .section-head {
+          flex-direction: row;
+          align-items: flex-end;
+          justify-content: space-between;
+        }
+      }
+      .section-title-lg {
+        font-size: 34px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+      }
+      .section-desc {
+        margin-top: 4px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .section-count {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .filter-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 1.75rem;
+      }
+      .chip {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--chip-text);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.18s, border-color 0.18s, color 0.18s;
+        white-space: nowrap;
+      }
+      .chip:hover {
+        background: var(--bg);
+      }
+      .chip.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .site-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 768px) {
+        .site-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 1280px) {
+        .site-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line2);
+        border-radius: 24px;
+        overflow: hidden;
+        transition: box-shadow 0.2s, border-color 0.2s;
+        position: relative;
+        animation: fadeIn 0.4s ease both;
+        cursor: default;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .card:hover {
+        box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px rgba(60, 64, 67, 0.15);
+        border-color: var(--line);
+      }
+      .card-body {
+        padding: 1.25rem;
+      }
+      .card-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .favicon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: var(--surface2);
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        overflow: hidden;
+        flex-shrink: 0;
+        font-weight: 600;
+        color: var(--icon-muted);
+      }
+      .favicon-with-chain {
+        position: relative;
+      }
+      .favicon-chain-img {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+        position: relative;
+        z-index: 1;
+      }
+      .favicon-monogram-only,
+      .favicon-monogram-fallback {
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .favicon-monogram-only {
+        display: flex;
+        border-radius: 16px;
+      }
+      .favicon-monogram-fallback {
+        position: absolute;
+        inset: 0;
+        display: none;
+        border-radius: 16px;
+      }
+      .card-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .card-name {
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.25;
+      }
+      .card-url {
+        margin-top: 4px;
+        max-width: 220px;
+        font-size: 14px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+        color: var(--icon-muted);
+      }
+      .icon-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: var(--icon-muted);
+        transition: color 0.15s, background 0.15s;
+      }
+      .icon-btn:hover {
+        color: var(--muted);
+      }
+      .icon-btn.fav.active {
+        color: var(--star);
+      }
+      .icon-btn--danger:hover {
+        color: var(--danger);
+      }
+
+      .cat-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 12px;
+        border: 1px solid transparent;
+      }
+      .card-memo {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--muted);
+        min-height: 44px;
+        margin-bottom: 4px;
+      }
+      .card-open-btn {
+        width: 100%;
+        height: 44px;
+        margin-top: 1.25rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--accent);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.18s;
+      }
+      .card-open-btn:hover {
+        background: var(--bg);
+      }
+
+      .del-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.96);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        border-radius: 24px;
+      }
+      .del-overlay p {
+        font-size: 13px;
+        color: var(--muted);
+        text-align: center;
+        padding: 0 1.5rem;
+        line-height: 1.5;
+      }
+      .del-overlay .del-btns {
+        display: flex;
+        gap: 8px;
+      }
+
+      .modal-bg {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(32, 33, 36, 0.25);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .modal-bg.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--line2);
+        border-radius: 24px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 8px 28px rgba(60, 64, 67, 0.18);
+        animation: modalIn 0.25s ease;
+      }
+      @keyframes modalIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95) translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .modal-title {
+        font-size: 22px;
+        font-weight: 500;
+        color: var(--text);
+        margin-bottom: 1.5rem;
+      }
+      .form-group {
+        margin-bottom: 14px;
+      }
+      .form-label {
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+        display: block;
+      }
+      .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.18s;
+      }
+      .form-control:focus {
+        border-color: var(--accent);
+      }
+      .form-control option {
+        background: var(--surface2);
+      }
+      .modal-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+      }
+
+      .fav-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-bottom: 0.5rem;
+      }
+      .fav-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px 8px 10px;
+        appearance: none;
+        font-family: inherit;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.18s, border-color 0.18s;
+        text-decoration: none;
+        color: var(--text);
+      }
+      .fav-chip:hover {
+        border-color: var(--accent);
+        background: var(--bg);
+      }
+      .fav-chip-ico-wrap {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .fav-chip-chain-img {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        object-fit: contain;
+      }
+      .fav-chip-ico-wrap .fav-chip-icon.ehub-icon-fallback {
+        position: absolute;
+        inset: 0;
+        display: none;
+        width: 20px;
+        height: 20px;
+      }
+      .fav-chip-icon {
+        width: 20px;
+        height: 20px;
+        background: var(--surface2);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent);
+        font-family: inherit;
+      }
+      .fav-chip span {
+        font-size: 13px;
+        font-weight: 400;
+      }
+
+      .empty {
+        grid-column: 1/-1;
+        text-align: center;
+        padding: 4rem;
+        color: var(--muted);
+      }
+      .empty p {
+        font-size: 15px;
+        margin-bottom: 0.5rem;
+      }
+      .empty small {
+        font-size: 12px;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 3px;
+      }
+
+    </style>
+  </head>
+
+  <body>
+    <div class="shell">
+      <header class="page-header">
+        <div class="page-header__btns">
+          <button type="button" class="btn-pill" onclick="toggleSort()">
+            정렬: <span id="sortLabel">추가순</span>
+          </button>
+          <button type="button" class="btn-pill btn-pill--primary" onclick="openModal()">+ 사이트 추가</button>
+        </div>
+        <div class="page-header__right">
+          <p class="page-header__tagline">깔끔하고 빠른 개인 사이트 허브</p>
+
+          <form class="login-panel" onsubmit="handleLogin(event)" autocomplete="off">
+            <input class="login-input" id="loginId" placeholder="ID" />
+            <input
+              class="login-input"
+              id="loginPassword"
+              placeholder="비밀번호"
+              type="password"
+              autoComplete="current-password"
+            />
+            <button
+              type="submit"
+              class="btn-pill btn-pill--primary"
+              style="height: 40px; padding: 0 18px;"
+            >
+              로그인
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <section class="hero-panel">
+        <div class="hero-panel__inner">
+          <div class="brand-row">
+            <div class="brand-icon" aria-hidden="true">↗</div>
+            <h1 class="hero-heading">E-hub</h1>
+          </div>
+          <p class="hero-lead">개인적으로 사용하는 사이트를 추가하고 빠르게 이동하세요.</p>
+          <div class="hero-search-bar">
+            <input
+              type="text"
+              id="heroSearch"
+              placeholder="사이트 이름 또는 URL 검색"
+              oninput="renderAll()"
+            />
+            <button type="button" onclick="renderAll()">검색</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card__num" id="statTotal">0</div>
+          <div class="stat-card__lbl">전체 사이트</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__num" id="statFav">0</div>
+          <div class="stat-card__lbl">즐겨찾기</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__num" id="statCat">0</div>
+          <div class="stat-card__lbl">카테고리</div>
+        </div>
+      </section>
+
+      <div id="favSection" class="fav-block">
+        <h2 class="fav-block__title">즐겨찾기 <span id="favCount" class="fav-block__count"></span></h2>
+        <div class="fav-row" id="favRow"></div>
+      </div>
+
+      <section class="sites-section">
+        <div class="section-head">
+          <div class="section-head__main">
+            <h2 class="section-title-lg">전체 사이트</h2>
+            <p class="section-desc">자주 사용하는 링크를 한눈에 정리했습니다.</p>
+          </div>
+          <div class="section-count" id="siteCount">총 0개</div>
+        </div>
+        <div class="filter-row" id="filterRow"></div>
+        <div class="site-grid" id="grid"></div>
+      </section>
+    </div>
+
+    <div class="modal-bg" id="modalBg" onclick="closeModalOnBg(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h2 class="modal-title" id="modalHeading">사이트 추가</h2>
+        <div class="form-group">
+          <label class="form-label">사이트 이름</label>
+          <input class="form-control" id="fName" placeholder="예: Notion, Jira, Slack…" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL</label>
+          <input class="form-control" id="fUrl" placeholder="https://notion.so" />
+        </div>
+        <div style="display: flex; gap: 10px">
+          <div class="form-group" style="flex: 1">
+            <label class="form-label">카테고리</label>
+            <select class="form-control" id="fCat"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">메모 (선택)</label>
+          <input class="form-control" id="fMemo" placeholder="짧은 설명을 입력하세요" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-pill" onclick="closeModal()">취소</button>
+          <button type="button" class="btn-pill btn-pill--primary" id="modalSaveBtn" onclick="submitSiteForm()">
+            추가하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const CAT_STYLE = {
+        회사: { color: "#e0534a", border: "rgba(224,83,74,0.15)" },
+        업무: { color: "#4f6ef7", border: "rgba(79,110,247,0.15)" },
+        마케팅: { color: "#7c3aed", border: "rgba(124,58,237,0.15)" },
+        디자인: { color: "#0891b2", border: "rgba(8,145,178,0.15)" },
+        개인: { color: "#059669", border: "rgba(5,150,105,0.15)" },
+        기타: { color: "#6b7280", border: "rgba(107,114,128,0.15)" },
+      };
+
+      /** 모달·필터 칩 공통 순서 (CAT_STYLE 키와 동일해야 함) */
+      const CATEGORY_ORDER = Object.keys(CAT_STYLE);
+
+      function initCategorySelect() {
+        const sel = document.getElementById("fCat");
+        sel.innerHTML = CATEGORY_ORDER.map((c) => `<option value="${c}">${c}</option>`).join("");
+      }
+
+      const STORAGE_KEY = "sbs-ehub-sites-v1";
+
+      const DEFAULT_SITES = [
+        {
+          id: 1,
+          name: "Google Workspace",
+          url: "https://workspace.google.com",
+          cat: "업무",
+          memo: "문서·드라이브·미팅",
+          fav: true,
+          added: 1,
+        },
+        { id: 2, name: "Slack", url: "https://slack.com", cat: "업무", memo: "팀 커뮤니케이션", fav: true, added: 2 },
+        { id: 3, name: "Notion", url: "https://notion.so", cat: "업무", memo: "문서 & 지식 관리", fav: true, added: 3 },
+        { id: 4, name: "GitHub", url: "https://github.com", cat: "업무", memo: "코드 레포지토리 & PR", fav: false, added: 4 },
+        { id: 5, name: "Jira", url: "https://www.atlassian.com/software/jira", cat: "업무", memo: "이슈 & 스프린트 관리", fav: false, added: 5 },
+        { id: 6, name: "Figma", url: "https://figma.com", cat: "디자인", memo: "UI·UX 디자인 협업", fav: false, added: 6 },
+        { id: 7, name: "HubSpot", url: "https://hubspot.com", cat: "마케팅", memo: "CRM & 마케팅 자동화", fav: false, added: 7 },
+        { id: 8, name: "Google Analytics", url: "https://analytics.google.com", cat: "마케팅", memo: "웹 분석 & 트래픽", fav: false, added: 8 },
+        { id: 9, name: "Workday", url: "https://workday.com", cat: "개인", memo: "HR & 채용 관리", fav: false, added: 9 },
+        { id: 10, name: "SAP", url: "https://sap.com", cat: "기타", memo: "ERP & 재무 시스템", fav: false, added: 10 },
+      ];
+
+      function cloneDefaultSites() {
+        return JSON.parse(JSON.stringify(DEFAULT_SITES));
+      }
+
+      function loadFromStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return { sites: cloneDefaultSites(), nextId: 11 };
+          const data = JSON.parse(raw);
+          if (!data || !Array.isArray(data.sites)) return { sites: cloneDefaultSites(), nextId: 11 };
+          const sites = data.sites.filter(
+            (s) =>
+              s &&
+              typeof s.id === "number" &&
+              typeof s.name === "string" &&
+              typeof s.url === "string" &&
+              typeof s.cat === "string"
+          );
+          if (!sites.length) return { sites: cloneDefaultSites(), nextId: 11 };
+          const maxId = Math.max(...sites.map((s) => s.id));
+          let nextId =
+            typeof data.nextId === "number" && data.nextId > maxId ? data.nextId : maxId + 1;
+          sites.forEach((s) => {
+            if (typeof s.fav !== "boolean") s.fav = false;
+            if (typeof s.memo !== "string") s.memo = "";
+            if (typeof s.added !== "number") s.added = s.id;
+          });
+          return { sites, nextId };
+        } catch {
+          return { sites: cloneDefaultSites(), nextId: 11 };
+        }
+      }
+
+      function persistToStorage() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ sites, nextId }));
+        } catch (e) {
+          console.warn("E-hub: localStorage 저장 실패", e);
+        }
+      }
+
+      const LOGIN_STORAGE_KEY = "ehub_logged_in_v1";
+      const ADMIN_STORAGE_KEY = "ehub_admin_v1";
+
+      function isLoggedIn() {
+        try {
+          return localStorage.getItem(LOGIN_STORAGE_KEY) === "true";
+        } catch {
+          return false;
+        }
+      }
+
+      function isAdmin() {
+        try {
+          return localStorage.getItem(ADMIN_STORAGE_KEY) === "true";
+        } catch {
+          return false;
+        }
+      }
+
+      function normalizeUrl(urlMaybe) {
+        const raw = String(urlMaybe || "").trim();
+        if (!raw) return "";
+        if (/^https?:\/\//i.test(raw)) return raw;
+        return `https://${raw}`;
+      }
+
+      function handleLogin(e) {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        try {
+          const id = String(document.getElementById("loginId")?.value || "").trim();
+          const pw = String(document.getElementById("loginPassword")?.value || "").trim();
+
+          if (!id || !pw) {
+            alert("ID와 비밀번호를 입력해주세요.");
+            return;
+          }
+
+          localStorage.setItem(LOGIN_STORAGE_KEY, "true");
+          if (id === "admin" && pw === "admin") localStorage.setItem(ADMIN_STORAGE_KEY, "true");
+          else localStorage.removeItem(ADMIN_STORAGE_KEY);
+          renderAll();
+        } catch {
+          alert("로그인 처리에 실패했습니다.");
+        }
+      }
+
+      function handleOpen(url) {
+        if (!isLoggedIn()) {
+          alert("로그인이 필요합니다.");
+          return;
+        }
+
+        const normalized = normalizeUrl(url);
+        if (!normalized) return;
+
+        window.open(normalized, "_blank", "noopener,noreferrer");
+      }
+
+      const _loaded = loadFromStorage();
+      let sites = _loaded.sites;
+      let nextId = _loaded.nextId;
+      let delTarget = null;
+      /** null이면 추가 모드, 숫자면 해당 id 사이트 수정 */
+      let editingSiteId = null;
+      let activeTag = "";
+      let sortMode = 0; // 0=added, 1=name, 2=fav
+      const sortModes = ["추가순", "이름순", "즐겨찾기순"];
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function titleInitial(name) {
+        const t = String(name || "").trim();
+        if (!t) return "?";
+        const g = Array.from(t)[0];
+        return g || "?";
+      }
+
+      /** 제목 문자열 기반으로 일정한 색(모노그램 배경) */
+      function monogramStyle(name) {
+        let h = 0;
+        const str = String(name || "");
+        for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+        const hue = Math.abs(h) % 360;
+        const bg = `linear-gradient(135deg,hsl(${hue},58%,92%),hsl(${hue},50%,80%))`;
+        const color = `hsl(${hue},45%,28%)`;
+        return `background:${bg};color:${color}`;
+      }
+
+      function getFaviconChain(url) {
+        try {
+          const u = new URL(url);
+          if (u.protocol !== "http:" && u.protocol !== "https:") return [];
+          const host = u.hostname;
+          const origin = u.origin;
+          /* Google s2는 실패 대신 지구본을 200으로 주는 경우가 많아 체인에서 제외 */
+          return [`${origin}/favicon.ico`, `https://icons.duckduckgo.com/ip3/${host}.ico`];
+        } catch {
+          return [];
+        }
+      }
+
+      /** /favicon.ico → DDG → Google 순 시도 후, 모두 실패 시 제목 모노그램 표시 */
+      function chainFavicon(img) {
+        let rest = [];
+        try {
+          rest = JSON.parse(decodeURIComponent(img.getAttribute("data-chain") || ""));
+        } catch {
+          rest = [];
+        }
+        const i = Number(img.dataset.i || 0);
+        if (i < rest.length) {
+          img.dataset.i = String(i + 1);
+          img.src = rest[i];
+          return;
+        }
+        img.style.display = "none";
+        const fb = img.nextElementSibling;
+        if (fb && fb.classList.contains("ehub-icon-fallback")) fb.style.display = "flex";
+      }
+
+      function cardIconMarkup(s) {
+        const initial = escapeHtml(titleInitial(s.name));
+        const mono = monogramStyle(s.name);
+        const chain = getFaviconChain(s.url);
+        if (!chain.length) {
+          return `<div class="favicon favicon-monogram-only" style="${mono}">${initial}</div>`;
+        }
+        const enc = encodeURIComponent(JSON.stringify(chain.slice(1)));
+        return `<div class="favicon favicon-with-chain">
+          <img class="favicon-chain-img" src="${escapeHtml(chain[0])}" alt="" data-chain="${enc}" onerror="chainFavicon(this)" />
+          <span class="ehub-icon-fallback favicon-monogram-fallback" style="${mono}">${initial}</span>
+        </div>`;
+      }
+
+      function favChipIconMarkup(s) {
+        const initial = escapeHtml(titleInitial(s.name));
+        const mono = monogramStyle(s.name);
+        const chain = getFaviconChain(s.url);
+        if (!chain.length) {
+          return `<span class="fav-chip-icon ehub-icon-fallback" style="${mono}">${initial}</span>`;
+        }
+        const enc = encodeURIComponent(JSON.stringify(chain.slice(1)));
+        return `<span class="fav-chip-ico-wrap">
+          <img class="fav-chip-chain-img" src="${escapeHtml(chain[0])}" alt="" data-chain="${enc}" onerror="chainFavicon(this)" />
+          <span class="fav-chip-icon ehub-icon-fallback" style="${mono}">${initial}</span>
+        </span>`;
+      }
+
+      function toggleSort() {
+        sortMode = (sortMode + 1) % 3;
+        document.getElementById("sortLabel").textContent = sortModes[sortMode];
+        renderAll();
+      }
+
+      function resetSiteForm() {
+        editingSiteId = null;
+        document.getElementById("modalHeading").textContent = "사이트 추가";
+        document.getElementById("modalSaveBtn").textContent = "추가하기";
+        ["fName", "fUrl", "fMemo"].forEach((fid) => (document.getElementById(fid).value = ""));
+        const sel = document.getElementById("fCat");
+        if (sel.options.length) sel.selectedIndex = 0;
+      }
+
+      function openModal() {
+        resetSiteForm();
+        document.getElementById("modalBg").classList.add("open");
+        document.getElementById("fName").focus();
+      }
+
+      function openEditModal(id, e) {
+        e.stopPropagation();
+        const s = sites.find((x) => x.id === id);
+        if (!s) return;
+        editingSiteId = id;
+        document.getElementById("modalHeading").textContent = "사이트 수정";
+        document.getElementById("modalSaveBtn").textContent = "저장";
+        document.getElementById("fName").value = s.name;
+        document.getElementById("fUrl").value = s.url;
+        document.getElementById("fCat").value = CATEGORY_ORDER.includes(s.cat) ? s.cat : "기타";
+        document.getElementById("fMemo").value = s.memo || "";
+        document.getElementById("modalBg").classList.add("open");
+        document.getElementById("fName").focus();
+      }
+
+      function closeModal() {
+        document.getElementById("modalBg").classList.remove("open");
+        resetSiteForm();
+      }
+      function closeModalOnBg(e) {
+        if (e.target === document.getElementById("modalBg")) closeModal();
+      }
+
+      function submitSiteForm() {
+        const name = document.getElementById("fName").value.trim();
+        let url = document.getElementById("fUrl").value.trim();
+        const cat = document.getElementById("fCat").value;
+        const memo = document.getElementById("fMemo").value.trim();
+        if (!name || !url) {
+          alert("이름과 URL을 입력해주세요.");
+          return;
+        }
+        if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
+        // 고정(회사) 사이트 추가는 관리자만 허용합니다.
+        if (editingSiteId == null && cat === "회사" && !isAdmin()) {
+          alert("관리자만 고정 사이트를 추가할 수 있습니다.");
+          return;
+        }
+
+        if (editingSiteId != null) {
+          const s = sites.find((x) => x.id === editingSiteId);
+          if (!s) {
+            closeModal();
+            renderAll();
+            return;
+          }
+          s.name = name;
+          s.url = url;
+          s.cat = cat;
+          s.memo = memo;
+          persistToStorage();
+          closeModal();
+          renderAll();
+          return;
+        }
+
+        const id = nextId++;
+        sites.unshift({ id, name, url, cat, memo, fav: false, added: id });
+        persistToStorage();
+        closeModal();
+        renderAll();
+      }
+
+      function toggleFav(id, e) {
+        e.stopPropagation();
+        const s = sites.find((x) => x.id === id);
+        if (s) {
+          s.fav = !s.fav;
+          persistToStorage();
+          renderAll();
+        }
+      }
+
+      function startDelete(id, e) {
+        e.stopPropagation();
+        delTarget = id;
+        renderAll();
+      }
+      function cancelDelete(e) {
+        e.stopPropagation();
+        delTarget = null;
+        renderAll();
+      }
+      function doDelete(e) {
+        e.stopPropagation();
+        sites = sites.filter((x) => x.id !== delTarget);
+        delTarget = null;
+        persistToStorage();
+        renderAll();
+      }
+
+      function setTag(t) {
+        activeTag = activeTag === t ? "" : t;
+        renderAll();
+      }
+
+      function renderAll() {
+        const loggedIn = isLoggedIn();
+        const favDisabledAttr = loggedIn ? "" : 'disabled aria-disabled="true"';
+        const openDisabledAttr = loggedIn ? "" : 'disabled aria-disabled="true"';
+        const q = document.getElementById("heroSearch").value.toLowerCase();
+        const usedCats = [...new Set(sites.map((s) => s.cat))];
+
+        document.getElementById("statTotal").textContent = sites.length;
+        document.getElementById("statFav").textContent = sites.filter((s) => s.fav).length;
+        document.getElementById("statCat").textContent = usedCats.length;
+
+        const favs = sites.filter((s) => s.fav);
+        document.getElementById("favCount").textContent = favs.length ? `${favs.length}개` : "";
+        document.getElementById("favSection").style.display = favs.length ? "block" : "none";
+        document.getElementById("favRow").innerHTML = favs
+          .map(
+            (s) =>
+              `<button type="button" class="fav-chip" data-open-url="${escapeHtml(s.url)}" ${favDisabledAttr} onclick="handleOpen(this.dataset.openUrl)">
+              ${favChipIconMarkup(s)}
+              <span>${escapeHtml(s.name)}</span>
+            </button>`
+          )
+          .join("");
+
+        document.getElementById("filterRow").innerHTML = [
+          `<button type="button" class="chip ${!activeTag ? "active" : ""}" onclick="setTag('')">전체</button>`,
+          ...CATEGORY_ORDER.map(
+            (c) =>
+              `<button type="button" class="chip ${activeTag === c ? "active" : ""}" onclick="setTag('${c}')">${c}</button>`
+          ),
+        ].join("");
+
+        let filtered = sites.filter((s) => {
+          const mQ = !q || s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
+          const mT = !activeTag || s.cat === activeTag;
+          return mQ && mT;
+        });
+
+        if (sortMode === 1) filtered.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+        else if (sortMode === 2) filtered.sort((a, b) => b.fav - a.fav || b.added - a.added);
+        else filtered.sort((a, b) => b.added - a.added);
+
+        document.getElementById("siteCount").textContent = `총 ${filtered.length}개`;
+
+        const grid = document.getElementById("grid");
+        if (!filtered.length) {
+          grid.innerHTML =
+            '<div class="empty"><p>검색 결과가 없습니다</p><small>다른 키워드로 검색하거나 새 사이트를 추가해보세요.</small></div>';
+          return;
+        }
+
+        grid.innerHTML = filtered
+          .map((s, i) => {
+            const st = CAT_STYLE[s.cat] || CAT_STYLE["기타"];
+            const isDeleting = delTarget === s.id;
+            return `<div class="card" style="animation-delay:${i * 0.04}s">
+              <div class="card-body">
+                <div class="card-top">
+                  ${cardIconMarkup(s)}
+                  <div class="card-info">
+                    <div class="card-name">${escapeHtml(s.name)}</div>
+                    <div class="card-url">${escapeHtml(s.url.replace(/^https?:\/\//, ""))}</div>
+                  </div>
+                  <div class="card-actions">
+                    <button type="button" class="icon-btn fav ${s.fav ? "active" : ""}" onclick="toggleFav(${s.id},event)" title="${
+              s.fav ? "즐겨찾기 해제" : "즐겨찾기"
+            }">${s.fav ? "★" : "☆"}</button>
+                    <button type="button" class="icon-btn" onclick="openEditModal(${s.id},event)" title="수정">✎</button>
+                    <button type="button" class="icon-btn icon-btn--danger" onclick="startDelete(${s.id},event)" title="삭제">✕</button>
+                  </div>
+                </div>
+                <span class="cat-badge" style="color:${st.color};border-color:${st.border};background:${st.border}">${escapeHtml(s.cat)}</span>
+                <div class="card-memo">${escapeHtml(s.memo || "")}</div>
+                <button
+                  type="button"
+                  class="card-open-btn"
+                  data-url="${escapeHtml(s.url)}"
+                  ${openDisabledAttr}
+                  onclick="handleOpen(this.dataset.url)"
+                >
+                  열기
+                </button>
+              </div>
+              ${
+                isDeleting
+                  ? `<div class="del-overlay">
+                <p>${escapeHtml(s.name)}을(를) 삭제할까요?</p>
+                <div class="del-btns">
+                  <button type="button" class="btn-pill" onclick="cancelDelete(event)">취소</button>
+                  <button type="button" class="btn-pill btn-pill--danger" onclick="doDelete(event)">삭제</button>
+                </div>
+              </div>`
+                  : ""
+              }
+            </div>`;
+          })
+          .join("");
+      }
+
+      initCategorySelect();
+      renderAll();
+    </script>
+  </body>
+</html>

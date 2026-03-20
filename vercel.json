@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd react-ui && npm ci",
+  "buildCommand": "cd react-ui && npm run build",
+  "outputDirectory": "react-ui/dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

@@ -1,0 +1,47 @@
+# Dependencies / build outputs
+node_modules/
+dist/
+
+# Vercel CLI (local link)
+.vercel/
+
+# Supabase CLI local cache (do not commit)
+supabase/.temp/
+
+# Local env files (never commit secrets)
+.env
+.env.*
+!.env.example
+!.env.sample
+*.env
+*.env.*
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Certificates / keys (common secret file extensions)
+*.pem
+*.key
+*.crt
+*.csr
+*.pfx
+*.p12
+
+# Generic credential files
+credentials*.json
+serviceAccount*.json
+*.credentials.*
+
+# Local login roster (may contain passwords)
+workspace_로그인정보.xlsx
+workspace_로그인정보_새로생성.xlsx
+

@@ -1,0 +1,30 @@
+# Optional: deploy when VERCEL_* secrets are set. Otherwise use Vercel → Import Git (same repo).
+# Secrets: VERCEL_TOKEN (Account Settings → Tokens), VERCEL_ORG_ID / VERCEL_PROJECT_ID (.vercel/project.json after `cd react-ui && npx vercel link`).
+
+name: Deploy Vercel
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      && secrets.VERCEL_TOKEN != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: react-ui
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-args: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))) && '--prod' || '' }}
