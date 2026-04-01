@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ModalDialog from "./components/ModalDialog";
 import PersonalNotepadPanel from "./components/PersonalNotepadPanel";
+import SupabaseEnvMissingNotice from "./components/SupabaseEnvMissingNotice";
 import { mapWorkspaceSiteRows } from "./application/workspaceSites/mapWorkspaceSiteRows";
 import { isTeamLeaderWorkspaceSite } from "./application/workspaceSites/isTeamLeaderSite";
 import { siteTitleEmoji } from "./application/workspaceSites/siteTitleEmoji";
@@ -12,7 +13,7 @@ import {
   resolveLoginEmail,
 } from "./application/auth/resolveLoginEmail";
 import { isEhubAdmin } from "./application/auth/isEhubAdmin";
-import { getSupabaseBrowserClient } from "./infrastructure/supabase";
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "./infrastructure/supabase";
 import {
   deleteCompanySite,
   deletePersonalSite,
@@ -141,6 +142,13 @@ function EmptyCard({ variant = "company" }: { variant?: "company" | "personal" }
 }
 
 export default function App() {
+  if (!isSupabaseConfigured(import.meta.env)) {
+    return <SupabaseEnvMissingNotice />;
+  }
+  return <AppWithSupabase />;
+}
+
+function AppWithSupabase() {
   const [session, setSession] = useState<Session | null>(null);
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");

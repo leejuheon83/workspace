@@ -46,3 +46,6 @@ workspace_로그인정보.xlsx
 workspace_로그인정보_새로생성.xlsx
 
 .vercel
+
+# Vite production: Supabase URL·anon 키는 클라이언트 공개 키(RLS). `*.env.*` 이후에 두어 추적 허용.
+!react-ui/.env.production
