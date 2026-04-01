@@ -7,6 +7,7 @@ import * as workspaceSiteRepository from "./infrastructure/supabase/workspaceSit
 
 vi.mock("./infrastructure/supabase", () => ({
   getSupabaseBrowserClient: vi.fn(),
+  isSupabaseConfigured: vi.fn(() => true),
 }));
 
 vi.mock("./infrastructure/supabase/workspaceSiteRepository", () => ({

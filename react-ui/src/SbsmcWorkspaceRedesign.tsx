@@ -4,9 +4,10 @@ import {
   displayLoginIdFromEmail,
   resolveLoginEmail,
 } from "./application/auth/resolveLoginEmail";
-import { getSupabaseBrowserClient } from "./infrastructure/supabase";
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "./infrastructure/supabase";
 import { isEhubAdmin } from "./application/auth/isEhubAdmin";
 import ModalDialog from "./components/ModalDialog";
+import SupabaseEnvMissingNotice from "./components/SupabaseEnvMissingNotice";
 import PersonalNotepadPanel from "./components/PersonalNotepadPanel";
 import type { CompanySite, PersonalSite } from "./domain/workspaceSite";
 import { mapWorkspaceSiteRows } from "./application/workspaceSites/mapWorkspaceSiteRows";
@@ -34,7 +35,7 @@ function displayUrlLine(domain: string): string {
   return r.ok ? r.url : domain.trim();
 }
 
-export default function SbsmcWorkspaceRedesign() {
+function SbsmcWorkspaceRedesignImpl() {
   const [session, setSession] = useState<Session | null>(null);
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -509,7 +510,7 @@ export default function SbsmcWorkspaceRedesign() {
                         </button>
                       </>
                     ) : null}
-                    <span className="inline-flex h-6 items-center rounded-full border border-[#D5E3F8] bg-[#F7FAFF] px-1.5 text-[9px] font-bold uppercase leading-none tracking-wide text-[#6A8DB6]">
+                    <span className="inline-flex h-6 items-center rounded-full border border-[#D5E3F8] bg-[#F7FAFF] px-1.5 text-[10px] font-bold uppercase leading-none tracking-wide text-[#6A8DB6]">
                       LOCK
                     </span>
                   </div>
@@ -519,13 +520,13 @@ export default function SbsmcWorkspaceRedesign() {
                     </div>
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <h3
-                        className="line-clamp-2 min-w-0 break-words text-left text-base font-semibold leading-snug text-slate-800"
+                        className="line-clamp-2 min-w-0 break-words text-left text-[17px] font-semibold leading-snug text-slate-800"
                         title={site.title}
                       >
                         {site.title}
                       </h3>
                       <p
-                        className="line-clamp-1 min-w-0 break-all text-xs leading-relaxed text-slate-400"
+                        className="line-clamp-1 min-w-0 break-all text-[13px] leading-relaxed text-slate-400"
                         title={urlOneLine}
                       >
                         {urlOneLine}
@@ -534,10 +535,10 @@ export default function SbsmcWorkspaceRedesign() {
                   </div>
                 </div>
                 <div className="flex-1 min-h-[56px] space-y-3">
-                  <p className="text-sm leading-relaxed text-slate-500">{site.description}</p>
+                  <p className="text-[15px] leading-relaxed text-slate-500">{site.description}</p>
                   {teamLeader ? (
                     <span
-                      className="inline-flex items-center rounded-full border border-[#F0D8A7] bg-[#FFF7E5] px-2.5 py-1 text-[11px] font-bold leading-normal text-[#B07A18]"
+                      className="inline-flex items-center rounded-full border border-[#F0D8A7] bg-[#FFF7E5] px-2.5 py-1 text-xs font-bold leading-normal text-[#B07A18]"
                       aria-label="팀장용"
                     >
                       팀장용
@@ -546,7 +547,7 @@ export default function SbsmcWorkspaceRedesign() {
                 </div>
                 <button
                   type="button"
-                  className="mt-auto w-full rounded-full bg-[#7BA7F0] py-3.5 text-sm font-semibold text-white transition group-hover:bg-[#5D8FD8]"
+                  className="mt-auto w-full rounded-full bg-[#7BA7F0] py-3.5 text-[15px] font-semibold text-white transition group-hover:bg-[#5D8FD8]"
                   onClick={() => onOpen(site.domain)}
                 >
                   열기
@@ -698,13 +699,13 @@ export default function SbsmcWorkspaceRedesign() {
                       </div>
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <h3
-                          className="line-clamp-2 min-w-0 break-words text-left text-base font-semibold leading-snug text-slate-800"
+                          className="line-clamp-2 min-w-0 break-words text-left text-[17px] font-semibold leading-snug text-slate-800"
                           title={site.title}
                         >
                           {site.title}
                         </h3>
                         <p
-                          className="line-clamp-1 min-w-0 break-all text-xs leading-relaxed text-slate-400"
+                          className="line-clamp-1 min-w-0 break-all text-[13px] leading-relaxed text-slate-400"
                           title={urlOneLine}
                         >
                           {urlOneLine}
@@ -713,11 +714,11 @@ export default function SbsmcWorkspaceRedesign() {
                     </div>
                   </div>
                   <div className="flex-1 min-h-[48px]">
-                    <p className="text-sm leading-relaxed text-slate-500">{site.description}</p>
+                    <p className="text-[15px] leading-relaxed text-slate-500">{site.description}</p>
                   </div>
                   <button
                     type="button"
-                    className="mt-auto w-full rounded-full bg-[#5FB3A2] py-3.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(95,179,162,0.22)] transition hover:brightness-[0.97] group-hover:shadow-[0_10px_22px_rgba(95,179,162,0.28)]"
+                    className="mt-auto w-full rounded-full bg-[#5FB3A2] py-3.5 text-[15px] font-semibold text-white shadow-[0_8px_18px_rgba(95,179,162,0.22)] transition hover:brightness-[0.97] group-hover:shadow-[0_10px_22px_rgba(95,179,162,0.28)]"
                     onClick={() => onOpen(site.domain)}
                   >
                     열기
@@ -816,4 +817,11 @@ export default function SbsmcWorkspaceRedesign() {
       </div>
     </div>
   );
+}
+
+export default function SbsmcWorkspaceRedesign() {
+  if (!isSupabaseConfigured(import.meta.env)) {
+    return <SupabaseEnvMissingNotice />;
+  }
+  return <SbsmcWorkspaceRedesignImpl />;
 }

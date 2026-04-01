@@ -409,14 +409,14 @@ body {
 }
 
 .card-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #111827;
   margin-bottom: 3px;
 }
 
 .card-url {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: #9CA3AF;
   margin-bottom: 8px;
@@ -430,7 +430,7 @@ body {
   align-items: center;
   justify-content: center;
   width: fit-content;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   letter-spacing: 0.01em;
   min-height: 20px;
@@ -452,7 +452,7 @@ body {
 }
 
 .tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
   padding: 2px 8px;
@@ -472,7 +472,7 @@ body {
   padding: 7px;
   border-radius: 9px;
   border: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
