@@ -30,6 +30,14 @@ export function resolveLoginEmail(raw: string, emailDomain: string | undefined):
   return `${s}@${domain}`;
 }
 
+/** `사번` 또는 `사번@도메인` 입력에서 로컬(사번) 부분만 반환합니다. */
+export function localLoginIdFromInput(raw: string): string {
+  const s = raw.trim();
+  const at = s.indexOf("@");
+  if (at > 0) return s.slice(0, at).trim();
+  return s;
+}
+
 /** 헤더 등에 표시: 기본 도메인으로 로그인한 경우 사번만 보여 줌 */
 export function displayLoginIdFromEmail(
   email: string | undefined,

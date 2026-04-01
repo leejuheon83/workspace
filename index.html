@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>E-hub</title>
+    <title>SBSM&amp;C workspace</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
@@ -748,7 +748,7 @@
         <div class="hero-panel__inner">
           <div class="brand-row">
             <div class="brand-icon" aria-hidden="true">↗</div>
-            <h1 class="hero-heading">E-hub</h1>
+            <h1 class="hero-heading">SBSM&amp;C workspace</h1>
           </div>
           <p class="hero-lead">개인적으로 사용하는 사이트를 추가하고 빠르게 이동하세요.</p>
           <div class="hero-search-bar">
@@ -946,7 +946,8 @@
           }
 
           localStorage.setItem(LOGIN_STORAGE_KEY, "true");
-          if (id === "admin" && pw === "admin") localStorage.setItem(ADMIN_STORAGE_KEY, "true");
+          const ADMIN_IDS = ["admin", "120032"];
+          if (ADMIN_IDS.includes(id)) localStorage.setItem(ADMIN_STORAGE_KEY, "true");
           else localStorage.removeItem(ADMIN_STORAGE_KEY);
           renderAll();
         } catch {
@@ -1129,6 +1130,10 @@
             renderAll();
             return;
           }
+          if (s.cat === "회사" && !isAdmin()) {
+            alert("관리자만 고정 사이트를 수정할 수 있습니다.");
+            return;
+          }
           s.name = name;
           s.url = url;
           s.cat = cat;
@@ -1168,6 +1173,13 @@
       }
       function doDelete(e) {
         e.stopPropagation();
+        const target = sites.find((x) => x.id === delTarget);
+        if (target && target.cat === "회사" && !isAdmin()) {
+          alert("관리자만 고정 사이트를 삭제할 수 있습니다.");
+          delTarget = null;
+          renderAll();
+          return;
+        }
         sites = sites.filter((x) => x.id !== delTarget);
         delTarget = null;
         persistToStorage();

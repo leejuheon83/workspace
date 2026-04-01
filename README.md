@@ -4,16 +4,17 @@ Workspace portal (React UI under `react-ui`, Supabase under `supabase/`).
 
 ## GitHub + Vercel
 
-로컬에 Git 저장소와 첫 커밋(`main`)이 준비되어 있습니다. 원격 저장소 생성·푸시·Vercel 연동은 **[docs/GITHUB_VERCEL.md](./docs/GITHUB_VERCEL.md)** 를 따르세요.
+- **한글 요약:** **[docs/VERCEL_빠른연동.md](./docs/VERCEL_빠른연동.md)** — 대시보드 Import / CLI `vercel link` 순서.
+- GitHub 저장소 만들기·푸시·연동 체크리스트: **[docs/GITHUB_VERCEL.md](./docs/GITHUB_VERCEL.md)**
 
 ## Deploy to Vercel
 
-See **[docs/VERCEL.md](./docs/VERCEL.md)** for dashboard setup, environment variables, optional GitHub Actions, and CLI commands.
+상세(환경 변수, GitHub Actions, CLI): **[docs/VERCEL.md](./docs/VERCEL.md)**
 
-Quick hints:
+요약:
 
-- Import this repo in Vercel and set **Root Directory** to **`react-ui`** *or* keep repo root and rely on root **`vercel.json`**.
-- Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel project settings.
+- Vercel에서 이 repo를 Import하고 **Root Directory**는 **저장소 루트**(`vercel.json`이 `react-ui` 빌드) 또는 **`react-ui`**(Vite 프리셋) 중 하나로 설정.
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 는 Vercel 프로젝트 환경 변수에 필수.
 
 ## Local UI
 

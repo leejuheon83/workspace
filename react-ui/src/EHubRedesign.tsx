@@ -16,14 +16,18 @@ import {
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { filterWorkspaceViews } from "./application/workspaceSites/filterWorkspaceViews";
 import { mapWorkspaceSiteRows } from "./application/workspaceSites/mapWorkspaceSiteRows";
+import { isTeamLeaderWorkspaceSite } from "./application/workspaceSites/isTeamLeaderSite";
 import { reorderSiteIds } from "./application/workspaceSites/reorderSiteIds";
 import { siteTitleEmoji } from "./application/workspaceSites/siteTitleEmoji";
+import { resolveSiteUrl } from "./application/workspaceSites/resolveSiteUrl";
+import WorkspacePremiumHero from "./components/WorkspacePremiumHero";
+import ModalDialog from "./components/ModalDialog";
 import { SortableItem } from "./components/workspace/SortableItem";
 import { isEhubAdmin } from "./application/auth/isEhubAdmin";
-import {
-  displayLoginIdFromEmail,
-  resolveLoginEmail,
-} from "./application/auth/resolveLoginEmail";
+import { resolveEmployeeGreetingName } from "./application/auth/employeeDisplayName";
+import { validateNewPasswordPair } from "./application/auth/validatePasswordChange";
+import { displayLoginIdFromEmail, resolveLoginEmail } from "./application/auth/resolveLoginEmail";
+import { fetchEmployeeDirectory } from "./infrastructure/employeeDirectory/fetchEmployeeDirectory";
 import type { CompanySite, PersonalSite } from "./domain/workspaceSite";
 import { getSupabaseBrowserClient } from "./infrastructure/supabase";
 import {
@@ -36,6 +40,7 @@ import {
   insertPersonalSite,
   updateCompanySite,
   updatePersonalFavorite,
+  updatePersonalSite,
 } from "./infrastructure/supabase/workspaceSiteRepository";
 
 type Stat = { label: string; value: number };
@@ -44,12 +49,6 @@ const filters = ["전체", "회사 고정", "개인", "업무", "기타"] as con
 
 const personalCategories = ["개인", "업무", "기타"] as const;
 
-function normalizeUrl(domainOrUrl: string): string {
-  const raw = domainOrUrl.trim();
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return `https://${raw}`;
-}
-
 export default function EHubRedesign() {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
@@ -57,6 +56,21 @@ export default function EHubRedesign() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [showPasswordResetPanel, setShowPasswordResetPanel] = useState(false);
+  const [pwdResetId, setPwdResetId] = useState("");
+  const [pwdResetMsg, setPwdResetMsg] = useState<string | null>(null);
+  const [pwdResetSubmitting, setPwdResetSubmitting] = useState(false);
+  const [preLoginCurrentPassword, setPreLoginCurrentPassword] = useState("");
+  const [preLoginNewPassword, setPreLoginNewPassword] = useState("");
+  const [preLoginNewPasswordConfirm, setPreLoginNewPasswordConfirm] = useState("");
+
+  const [showPasswordChangePanel, setShowPasswordChangePanel] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [pwdChangeMsg, setPwdChangeMsg] = useState<string | null>(null);
+  const [pwdChangeSubmitting, setPwdChangeSubmitting] = useState(false);
+
+  const [employeeDirectory, setEmployeeDirectory] = useState<Record<string, string>>({});
 
   const [companySites, setCompanySites] = useState<CompanySite[]>([]);
   const [personalSites, setPersonalSites] = useState<PersonalSite[]>([]);
@@ -72,6 +86,7 @@ export default function EHubRedesign() {
     useState<(typeof personalCategories)[number]>("개인");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingPersonalId, setEditingPersonalId] = useState<string | null>(null);
 
   const [showCompanyForm, setShowCompanyForm] = useState(false);
   const [companyTitle, setCompanyTitle] = useState("");
@@ -138,6 +153,30 @@ export default function EHubRedesign() {
       subscription.unsubscribe();
     };
   }, [loadSites]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const dir = await fetchEmployeeDirectory();
+      if (!cancelled) setEmployeeDirectory(dir);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { headerDisplayId, headerGreetingName } = useMemo(() => {
+    const email = session?.user?.email;
+    const displayId =
+      displayLoginIdFromEmail(email, import.meta.env.VITE_LOGIN_EMAIL_DOMAIN) ||
+      session?.user?.id ||
+      "";
+    const meta = session?.user?.user_metadata as Record<string, unknown> | undefined;
+    const greetingName = displayId
+      ? resolveEmployeeGreetingName(employeeDirectory, displayId, meta)
+      : undefined;
+    return { headerDisplayId: displayId, headerGreetingName: greetingName };
+  }, [session, employeeDirectory]);
 
   const { company: visibleCompany, personal: visiblePersonal } = useMemo(
     () => filterWorkspaceViews(activeFilter, companySites, personalSites),
@@ -245,6 +284,104 @@ export default function EHubRedesign() {
     setShowCompanyForm(false);
     setEditingCompanyId(null);
     setCompanyCardEditError(null);
+    setShowPasswordChangePanel(false);
+    resetLoggedInPasswordForm();
+  }
+
+  /**
+   * 로그아웃 상태: 사번·현재 비밀번호로 로그인 확인 후 즉시 새 비밀번호로 변경 (메일 없음).
+   */
+  async function onPreLoginDirectPasswordChange(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPwdResetMsg(null);
+    let email: string;
+    try {
+      email = resolveLoginEmail(pwdResetId, import.meta.env.VITE_LOGIN_EMAIL_DOMAIN);
+    } catch (err) {
+      setPwdResetMsg(err instanceof Error ? err.message : "입력을 확인해 주세요.");
+      return;
+    }
+    const current = preLoginCurrentPassword.trim();
+    if (!current) {
+      setPwdResetMsg("현재 비밀번호를 입력해 주세요.");
+      return;
+    }
+    const pwErr = validateNewPasswordPair(preLoginNewPassword, preLoginNewPasswordConfirm);
+    if (pwErr) {
+      setPwdResetMsg(pwErr);
+      return;
+    }
+    setPwdResetSubmitting(true);
+    const supabase = getSupabaseBrowserClient();
+    try {
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: current,
+      });
+      if (signErr) {
+        setPwdResetMsg(signErr.message);
+        return;
+      }
+      const { error: updateErr } = await supabase.auth.updateUser({
+        password: preLoginNewPassword.trim(),
+      });
+      if (updateErr) {
+        setPwdResetMsg(updateErr.message);
+        return;
+      }
+      setPwdResetMsg("비밀번호가 변경되었습니다.");
+      setPreLoginCurrentPassword("");
+      setPreLoginNewPassword("");
+      setPreLoginNewPasswordConfirm("");
+      setPwdResetId("");
+    } finally {
+      setPwdResetSubmitting(false);
+    }
+  }
+
+  async function onLoggedInPasswordChangeSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPwdChangeMsg(null);
+    const msg = validateNewPasswordPair(newPassword, newPasswordConfirm);
+    if (msg) {
+      setPwdChangeMsg(msg);
+      return;
+    }
+    if (!session?.user) return;
+    setPwdChangeSubmitting(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.auth.updateUser({ password: newPassword.trim() });
+      if (error) {
+        setPwdChangeMsg(error.message);
+        return;
+      }
+      setPwdChangeMsg("비밀번호가 변경되었습니다.");
+      setNewPassword("");
+      setNewPasswordConfirm("");
+    } finally {
+      setPwdChangeSubmitting(false);
+    }
+  }
+
+  function resetLoggedInPasswordForm() {
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    setPwdChangeMsg(null);
+  }
+
+  function closeLoggedInPasswordModal() {
+    resetLoggedInPasswordForm();
+    setShowPasswordChangePanel(false);
+  }
+
+  function closePreLoginPasswordModal() {
+    setPwdResetId("");
+    setPreLoginCurrentPassword("");
+    setPreLoginNewPassword("");
+    setPreLoginNewPasswordConfirm("");
+    setPwdResetMsg(null);
+    setShowPasswordResetPanel(false);
   }
 
   function openSite(domainOrUrl: string) {
@@ -252,8 +389,12 @@ export default function EHubRedesign() {
       alert("로그인이 필요합니다.");
       return;
     }
-    const url = normalizeUrl(domainOrUrl);
-    window.open(url, "_blank", "noopener,noreferrer");
+    const resolved = resolveSiteUrl(domainOrUrl);
+    if (!resolved.ok) {
+      alert(resolved.message);
+      return;
+    }
+    window.open(resolved.url, "_blank", "noopener,noreferrer");
   }
 
   async function onToggleFavorite(site: PersonalSite) {
@@ -279,7 +420,7 @@ export default function EHubRedesign() {
     }
   }
 
-  async function onAddPersonalSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onPersonalFormSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!session?.user.id) return;
     setFormError(null);
@@ -292,23 +433,35 @@ export default function EHubRedesign() {
     setFormSubmitting(true);
     try {
       const supabase = getSupabaseBrowserClient();
-      await insertPersonalSite(supabase, session.user.id, {
-        title,
-        domain,
-        description: newDescription.trim(),
-        category: newCategory,
-      });
+      if (editingPersonalId) {
+        await updatePersonalSite(supabase, session.user.id, editingPersonalId, {
+          title,
+          domain,
+          description: newDescription.trim(),
+          category: newCategory,
+        });
+      } else {
+        await insertPersonalSite(supabase, session.user.id, {
+          title,
+          domain,
+          description: newDescription.trim(),
+          category: newCategory,
+        });
+      }
       setNewTitle("");
       setNewDomain("");
       setNewDescription("");
       setNewCategory("개인");
+      setEditingPersonalId(null);
       setShowPersonalForm(false);
       await loadSites(session.user.id);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err && typeof err.message === "string"
           ? err.message
-          : "추가하지 못했습니다.";
+          : editingPersonalId
+            ? "수정하지 못했습니다."
+            : "추가하지 못했습니다.";
       setFormError(msg);
     } finally {
       setFormSubmitting(false);
@@ -321,7 +474,37 @@ export default function EHubRedesign() {
       return;
     }
     setFormError(null);
-    setShowPersonalForm((v) => !v);
+    setEditingPersonalId(null);
+    setNewTitle("");
+    setNewDomain("");
+    setNewDescription("");
+    setNewCategory("개인");
+    setShowPersonalForm(true);
+  }
+
+  function openEditPersonal(site: PersonalSite) {
+    if (!isLoggedIn || !session?.user.id) {
+      alert("로그인 후 개인 링크를 수정할 수 있습니다.");
+      return;
+    }
+    setFormError(null);
+    setEditingPersonalId(site.id);
+    setNewTitle(site.title);
+    setNewDomain(site.domain);
+    setNewDescription(site.description);
+    const cat = site.category;
+    setNewCategory(
+      (personalCategories as readonly string[]).includes(cat)
+        ? (cat as (typeof personalCategories)[number])
+        : "개인",
+    );
+    setShowPersonalForm(true);
+  }
+
+  function closePersonalForm() {
+    setShowPersonalForm(false);
+    setEditingPersonalId(null);
+    setFormError(null);
   }
 
   async function onAddCompanySubmit(e: FormEvent<HTMLFormElement>) {
@@ -361,6 +544,7 @@ export default function EHubRedesign() {
   }
 
   function startEditCompany(site: CompanySite) {
+    if (!isAdmin) return;
     setCompanyCardEditError(null);
     setShowCompanyForm(false);
     setEditingCompanyId(site.id);
@@ -378,6 +562,10 @@ export default function EHubRedesign() {
   async function onSaveCompanyCardEdit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!session?.user.id || !editingCompanyId) return;
+    if (!isAdmin) {
+      setCompanyCardEditError("관리자만 수정할 수 있습니다.");
+      return;
+    }
     setCompanyCardEditError(null);
     const title = editCompanyTitle.trim();
     const domain = editCompanyDomain.trim();
@@ -425,76 +613,254 @@ export default function EHubRedesign() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#202124]">
-      <div className="mx-auto max-w-[1280px] px-5 py-5 lg:px-8">
-        <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="h-10 rounded-full border border-[#dadce0] bg-white px-4 text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa]"
-            >
-              정렬: 추가순
-            </button>
-          </div>
+    <div className="min-h-screen bg-[var(--ws-bg)] text-[#202124]">
+      <div className="mx-auto max-w-[1280px] px-5 py-4 lg:px-8">
+        <header className="mb-5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <a
+            href="/"
+            className="flex shrink-0 items-end transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/30 rounded-lg"
+            aria-label="홈"
+          >
+            <img
+              src="/sbsmc-logo.png"
+              alt="SBS M&C"
+              className="h-[88px] w-auto max-w-[min(85vw,420px)] object-contain object-left"
+              decoding="async"
+            />
+          </a>
           <div className="flex flex-col items-end gap-2 sm:items-end">
             {isLoggedIn ? (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <span className="text-sm text-[#5f6368]">
-                  {displayLoginIdFromEmail(
-                    session?.user.email,
-                    import.meta.env.VITE_LOGIN_EMAIL_DOMAIN,
-                  ) || session?.user.id}
-                </span>
-                <button
-                  type="button"
-                  className="h-9 rounded-full border border-[#dadce0] bg-white px-4 text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa]"
-                  onClick={() => void onLogout()}
+              <div className="flex w-full max-w-full flex-col items-end gap-2 sm:w-auto">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-sm leading-reading">
+                    {headerGreetingName ? (
+                      <span className="font-medium text-[#202124]">{headerGreetingName}님</span>
+                    ) : null}
+                    <span className="font-normal text-[#5f6368]">{headerDisplayId}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="h-9 rounded-full border border-[#dadce0] bg-white px-4 text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa]"
+                    onClick={() => {
+                      if (showPasswordChangePanel) closeLoggedInPasswordModal();
+                      else setShowPasswordChangePanel(true);
+                    }}
+                  >
+                    비밀번호 변경
+                  </button>
+                  <button
+                    type="button"
+                    className="h-9 rounded-full border border-[#dadce0] bg-white px-4 text-sm font-medium text-[#3c4043] transition hover:bg-[#f8f9fa]"
+                    onClick={() => void onLogout()}
+                  >
+                    로그아웃
+                  </button>
+                </div>
+                <ModalDialog
+                  open={showPasswordChangePanel}
+                  onClose={closeLoggedInPasswordModal}
+                  titleId="ehub-modal-pwd-logged-in-title"
                 >
-                  로그아웃
-                </button>
+                  <form
+                    className="w-full text-left"
+                    onSubmit={(e) => void onLoggedInPasswordChangeSubmit(e)}
+                  >
+                    <div
+                      id="ehub-modal-pwd-logged-in-title"
+                      className="mb-3 pr-10 text-sm font-medium text-[var(--ws-text-main)]"
+                    >
+                      비밀번호 변경
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="sr-only" htmlFor="newPassword">
+                        새 비밀번호
+                      </label>
+                      <input
+                        id="newPassword"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="새 비밀번호"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                      <label className="sr-only" htmlFor="newPasswordConfirm">
+                        새 비밀번호 확인
+                      </label>
+                      <input
+                        id="newPasswordConfirm"
+                        value={newPasswordConfirm}
+                        onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="새 비밀번호 확인"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                    </div>
+                    {pwdChangeMsg ? (
+                      <div
+                        className={`mt-2 text-xs leading-reading ${
+                          pwdChangeMsg.includes("변경되었") ? "text-[#137333]" : "text-[#d93025]"
+                        }`}
+                        aria-live="polite"
+                      >
+                        {pwdChangeMsg}
+                      </div>
+                    ) : null}
+                    <div className="mt-3">
+                      <button
+                        type="submit"
+                        disabled={pwdChangeSubmitting}
+                        className="h-9 rounded-full bg-[var(--ws-btn-bg)] px-4 text-sm font-medium text-[var(--ws-btn-text)] transition hover:bg-[var(--ws-accent-hover)] disabled:opacity-60"
+                      >
+                        {pwdChangeSubmitting ? "…" : "변경"}
+                      </button>
+                    </div>
+                  </form>
+                </ModalDialog>
               </div>
             ) : (
-              <form
-                className="flex items-center gap-2 whitespace-nowrap"
-                onSubmit={(e) => void onLoginSubmit(e)}
-              >
-                <div>
-                  <label className="sr-only" htmlFor="loginId">
-                    사번
-                  </label>
-                  <input
-                    id="loginId"
-                    value={loginId}
-                    onChange={(e) => setLoginId(e.target.value)}
-                    placeholder="사번"
-                    autoComplete="username"
-                    className="h-9 w-[200px] rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="sr-only" htmlFor="loginPassword">
-                    비밀번호
-                  </label>
-                  <input
-                    id="loginPassword"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="비밀번호"
-                    type="password"
-                    autoComplete="current-password"
-                    className="h-9 w-[200px] rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loginSubmitting}
-                  className="h-9 w-auto rounded-full bg-[#1a73e8] px-5 text-sm font-medium text-white transition hover:bg-[#1765cc] whitespace-nowrap disabled:opacity-60"
+              <div className="flex w-full max-w-full flex-col items-end gap-2 sm:w-auto">
+                <form
+                  className="flex flex-wrap items-center justify-end gap-2"
+                  onSubmit={(e) => void onLoginSubmit(e)}
                 >
-                  {loginSubmitting ? "…" : "로그인"}
+                  <div>
+                    <label className="sr-only" htmlFor="loginId">
+                      사번
+                    </label>
+                    <input
+                      id="loginId"
+                      value={loginId}
+                      onChange={(e) => setLoginId(e.target.value)}
+                      placeholder="사번"
+                      autoComplete="username"
+                      className="h-9 w-[200px] max-w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="sr-only" htmlFor="loginPassword">
+                      비밀번호
+                    </label>
+                    <input
+                      id="loginPassword"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="비밀번호"
+                      type="password"
+                      autoComplete="current-password"
+                      className="h-9 w-[200px] max-w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loginSubmitting}
+                    className="h-9 w-auto rounded-full bg-[#1a73e8] px-5 text-sm font-medium text-white transition hover:bg-[#1765cc] whitespace-nowrap disabled:opacity-60"
+                  >
+                    {loginSubmitting ? "…" : "로그인"}
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-[#1a73e8] underline-offset-2 hover:underline"
+                  onClick={() => {
+                    if (showPasswordResetPanel) closePreLoginPasswordModal();
+                    else setShowPasswordResetPanel(true);
+                  }}
+                >
+                  비밀번호 변경
                 </button>
-              </form>
+                <ModalDialog
+                  open={showPasswordResetPanel}
+                  onClose={closePreLoginPasswordModal}
+                  titleId="ehub-modal-pwd-prelogin-title"
+                >
+                  <form
+                    className="w-full text-left"
+                    onSubmit={(e) => void onPreLoginDirectPasswordChange(e)}
+                  >
+                    <div
+                      id="ehub-modal-pwd-prelogin-title"
+                      className="mb-1 pr-10 text-sm font-medium text-[var(--ws-text-main)]"
+                    >
+                      비밀번호 변경
+                    </div>
+                    <p className="mb-3 text-xs font-normal leading-reading text-[var(--ws-text-sub)]">
+                      사번과 현재 비밀번호를 입력한 뒤 「비밀번호 변경」으로 새 비밀번호를 설정할 수 있습니다.
+                    </p>
+                    <div className="grid gap-2">
+                      <label className="sr-only" htmlFor="pwdResetId">
+                        사번
+                      </label>
+                      <input
+                        id="pwdResetId"
+                        value={pwdResetId}
+                        onChange={(e) => setPwdResetId(e.target.value)}
+                        placeholder="사번"
+                        autoComplete="username"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                      <label className="sr-only" htmlFor="preLoginCurrentPassword">
+                        현재 비밀번호
+                      </label>
+                      <input
+                        id="preLoginCurrentPassword"
+                        value={preLoginCurrentPassword}
+                        onChange={(e) => setPreLoginCurrentPassword(e.target.value)}
+                        placeholder="현재 비밀번호"
+                        type="password"
+                        autoComplete="current-password"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                      <label className="sr-only" htmlFor="preLoginNewPassword">
+                        새 비밀번호
+                      </label>
+                      <input
+                        id="preLoginNewPassword"
+                        value={preLoginNewPassword}
+                        onChange={(e) => setPreLoginNewPassword(e.target.value)}
+                        placeholder="새 비밀번호"
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                      <label className="sr-only" htmlFor="preLoginNewPasswordConfirm">
+                        새 비밀번호 확인
+                      </label>
+                      <input
+                        id="preLoginNewPasswordConfirm"
+                        value={preLoginNewPasswordConfirm}
+                        onChange={(e) => setPreLoginNewPasswordConfirm(e.target.value)}
+                        placeholder="새 비밀번호 확인"
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-9 w-full rounded-full border border-[#dadce0] bg-white px-4 text-sm text-[#202124] placeholder:text-[#9aa0a6] focus:border-[#1a73e8] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20"
+                      />
+                    </div>
+                    {pwdResetMsg ? (
+                      <div
+                        className={`mt-2 text-xs leading-reading ${
+                          pwdResetMsg.includes("변경되었") ? "text-[#137333]" : "text-[#d93025]"
+                        }`}
+                        aria-live="polite"
+                      >
+                        {pwdResetMsg}
+                      </div>
+                    ) : null}
+                    <div className="mt-3">
+                      <button
+                        type="submit"
+                        disabled={pwdResetSubmitting}
+                        className="h-9 rounded-full bg-[var(--ws-btn-bg)] px-4 text-sm font-medium text-[var(--ws-btn-text)] transition hover:bg-[var(--ws-accent-hover)] disabled:opacity-60"
+                      >
+                        {pwdResetSubmitting ? "…" : "비밀번호 변경"}
+                      </button>
+                    </div>
+                  </form>
+                </ModalDialog>
+              </div>
             )}
 
             {loginError ? (
@@ -507,20 +873,11 @@ export default function EHubRedesign() {
 
         {isLoggedIn && isAdmin ? (
           <div
-            className="mb-6 rounded-[20px] border border-amber-200 bg-amber-50/90 px-5 py-4 shadow-sm"
+            className="mb-5 rounded-[20px] border border-amber-200 bg-amber-50/90 px-5 py-4 shadow-sm"
             aria-label="관리자 메뉴"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="text-sm font-semibold text-[#202124]">관리자 메뉴</div>
-                <p className="mt-1 max-w-xl text-xs text-[#5f6368]">
-                  회사 고정 메뉴(전사 공통)를 여기서 추가·수정·삭제합니다. 기본 관리자는 사번{" "}
-                  <span className="font-mono">120032</span> 로 로그인한 계정입니다. 추가 관리자는{" "}
-                  <code className="text-[11px]">VITE_ADMIN_EMPLOYEE_IDS</code> 또는 Supabase 메타데이터{" "}
-                  <code className="text-[11px]">ehub_admin</code> 로 설정할 수 있습니다. 아래 Company 카드에서도
-                  수정·삭제할 수 있습니다.
-                </p>
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-semibold text-[#202124]">관리자 메뉴</div>
               <button
                 type="button"
                 className="h-10 shrink-0 rounded-full bg-[#1a73e8] px-5 text-sm font-medium text-white transition hover:bg-[#1765cc]"
@@ -595,7 +952,7 @@ export default function EHubRedesign() {
             role="alert"
           >
             사이트 목록을 불러오지 못했습니다: {sitesError}
-            <div className="mt-1 text-xs text-[#5f6368]">
+            <div className="mt-1 text-xs font-normal leading-reading text-[#5f6368]">
               Supabase SQL Editor에서{" "}
               <code className="rounded bg-white/80 px-1">supabase/migrations/20250320090000_workspace_sites.sql</code>{" "}
               내용을 실행했는지 확인해 주세요.
@@ -603,59 +960,16 @@ export default function EHubRedesign() {
           </div>
         ) : null}
 
-        <section className="relative overflow-hidden rounded-[32px] border border-[#e8eaed] bg-[linear-gradient(180deg,#f4f7fb_0%,#eef3f9_100%)] px-6 py-16 sm:px-10">
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute left-[-70px] top-[-50px] h-64 w-64 rounded-full bg-[#d2e3fc] blur-3xl opacity-80 animate-[floatBlob1_10s_ease-in-out_infinite]" />
-            <div className="absolute right-[6%] top-[7%] h-48 w-48 rounded-full bg-[#e8f0fe] blur-3xl opacity-90 animate-[floatBlob2_12s_ease-in-out_infinite]" />
-            <div className="absolute bottom-[-60px] left-[20%] h-44 w-44 rounded-full bg-white blur-3xl opacity-90 animate-[floatBlob3_11s_ease-in-out_infinite]" />
-            <div className="absolute bottom-[8%] right-[16%] h-28 w-28 rounded-full bg-[#dce8ff] blur-2xl opacity-80 animate-[floatBlob4_8s_ease-in-out_infinite]" />
-            <div className="absolute left-[38%] top-[8%] h-24 w-24 rounded-full bg-[#eef4ff] blur-2xl opacity-75 animate-[floatBlob5_9s_ease-in-out_infinite]" />
+        <WorkspacePremiumHero />
 
-            <div className="absolute left-[8%] top-[18%] h-[1px] w-[84%] bg-gradient-to-r from-transparent via-[#d7e6ff] to-transparent opacity-80 animate-[scanLineWide_7s_linear_infinite]" />
-            <div className="absolute left-[-10%] top-[62%] h-[120px] w-[55%] rounded-full border border-white/40 opacity-70 blur-[1px] animate-[waveMove_9s_ease-in-out_infinite]" />
-            <div className="absolute right-[-8%] bottom-[8%] h-[100px] w-[42%] rounded-full border border-[#d8e7ff] opacity-60 blur-[1px] animate-[waveMoveReverse_11s_ease-in-out_infinite]" />
-
-            <div className="absolute left-[9%] top-[24%] hidden rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-[#5f6368] shadow-sm backdrop-blur md:block animate-[floatBadge_5s_ease-in-out_infinite]">
-              smart flow
-            </div>
-            <div className="absolute right-[13%] top-[28%] hidden rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-[#5f6368] shadow-sm backdrop-blur md:block animate-[floatBadge_6s_ease-in-out_infinite] [animation-delay:1s]">
-              active space
-            </div>
-            <div className="absolute left-[17%] bottom-[18%] hidden rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-[#5f6368] shadow-sm backdrop-blur lg:block animate-[floatBadge_5.5s_ease-in-out_infinite] [animation-delay:1.8s]">
-              my workspace
-            </div>
-            <div className="absolute right-[24%] bottom-[20%] hidden rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs text-[#5f6368] shadow-sm backdrop-blur lg:block animate-[floatBadge_6.2s_ease-in-out_infinite] [animation-delay:2.4s]">
-              fast launch
-            </div>
-
-            <div className="absolute left-[48%] top-[22%] h-2 w-2 rounded-full bg-[#1a73e8] opacity-70 animate-[sparkle_3s_ease-in-out_infinite]" />
-            <div className="absolute left-[56%] top-[30%] h-2 w-2 rounded-full bg-[#8ab4f8] opacity-60 animate-[sparkle_4s_ease-in-out_infinite] [animation-delay:1.1s]" />
-            <div className="absolute right-[32%] top-[44%] h-2 w-2 rounded-full bg-white opacity-80 animate-[sparkle_3.6s_ease-in-out_infinite] [animation-delay:1.8s]" />
-          </div>
-
-          <div className="relative mx-auto max-w-3xl text-center">
-            <div className="mb-4 inline-flex items-center gap-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-[0_8px_30px_rgba(26,115,232,0.20)] ring-1 ring-white/70 backdrop-blur animate-[logoPulse_4.5s_ease-in-out_infinite]">
-                <div className="absolute inset-[-8px] rounded-full border border-[#d6e5ff] opacity-80 animate-[haloRotate_12s_linear_infinite]" />
-                <div className="absolute inset-[-14px] rounded-full border border-white/60 opacity-60 animate-[haloRotateReverse_16s_linear_infinite]" />
-                <div className="h-9 w-9 rounded-full bg-[#e8f0fe]" />
-              </div>
-              <h1 className="text-[46px] font-medium tracking-[-0.04em] text-[#202124]">Workspace</h1>
-            </div>
-            <p className="mb-8 text-[17px] text-[#5f6368]">
-              개인적으로 사용하는 사이트를 정리하고, 움직이는 인터랙션과 함께 더 빠르게 이동하세요.
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-5 grid gap-3 sm:grid-cols-3">
+        <section className="mt-4 grid gap-3 sm:grid-cols-3">
           {stats.map((item) => (
             <div
               key={item.label}
               className="rounded-[20px] border border-[#e8eaed] bg-white px-5 py-5 text-center"
             >
-              <div className="text-[28px] font-medium text-[#1a73e8]">{item.value}</div>
-              <div className="mt-1 text-sm text-[#5f6368]">{item.label}</div>
+              <div className="text-[28px] font-semibold text-[#1a73e8]">{item.value}</div>
+              <div className="mt-1 text-sm font-normal leading-reading text-[#5f6368]">{item.label}</div>
             </div>
           ))}
         </section>
@@ -663,12 +977,12 @@ export default function EHubRedesign() {
         <section className="mt-12">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-[34px] font-medium tracking-[-0.03em] text-[#202124]">Workspace 구성</h2>
-              <p className="mt-1 text-sm text-[#5f6368]">
+              <h2 className="text-[34px] font-semibold text-[#202124]">Workspace 구성</h2>
+              <p className="mt-1 text-sm font-normal leading-reading text-[#5f6368]">
                 회사 공통 메뉴는 고정하고, 아래에 개인 커스텀 링크를 따로 배치한 구조입니다.
               </p>
             </div>
-            <div className="text-sm text-[#5f6368]">
+            <div className="text-sm font-normal leading-reading text-[#5f6368]">
               {sitesLoading && sessionReady ? "불러오는 중…" : null}
               총 {companySites.length + personalSites.length}
               개
@@ -693,20 +1007,20 @@ export default function EHubRedesign() {
           </div>
 
           {sortModeAll && isLoggedIn ? (
-            <p className="mb-6 text-xs text-[#5f6368]">
-              카드 왼쪽 <span className="font-mono">⋮⋮</span> 핸들을 드래그하면 순서를 바꿀 수 있습니다. 변경 내용은 저장되며,{" "}
-              <span className="font-medium text-[#3c4043]">회사 고정</span>은 관리자만,{" "}
-              <span className="font-medium text-[#3c4043]">내 링크</span>는 본인만 바꿀 수 있습니다. (
-              <span className="font-medium">전체</span> 보기에서만 가능)
+            <p className="mb-6 text-xs font-normal leading-reading text-[#5f6368]">
+              카드 왼쪽 <span className="font-mono">⋮⋮</span> 핸들을 드래그하면 순서를 바꿀 수 있습니다. 변경 내용은 저장되며, 회사 고정은
+              관리자만, 내 링크는 본인만 바꿀 수 있습니다.
             </p>
           ) : null}
 
           {showPersonalForm && isLoggedIn ? (
             <form
-              onSubmit={(e) => void onAddPersonalSubmit(e)}
-              className="mb-8 rounded-[24px] border border-[#dbe7fb] bg-white p-5 shadow-sm"
+              onSubmit={(e) => void onPersonalFormSubmit(e)}
+              className="mb-8 rounded-[24px] border border-[var(--ws-card-border)] bg-[var(--ws-card-bg)] p-5 shadow-sm"
             >
-              <div className="mb-3 text-sm font-medium text-[#202124]">개인 링크 추가</div>
+              <div className="mb-3 text-sm font-medium text-[var(--ws-text-main)]">
+                {editingPersonalId ? "개인 링크 수정" : "개인 링크 추가"}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   value={newTitle}
@@ -747,14 +1061,14 @@ export default function EHubRedesign() {
                 <button
                   type="submit"
                   disabled={formSubmitting}
-                  className="h-10 rounded-full bg-[#1a73e8] px-5 text-sm font-medium text-white disabled:opacity-60"
+                  className="h-10 rounded-full bg-[var(--ws-btn-bg)] px-5 text-sm font-medium text-[var(--ws-btn-text)] transition hover:bg-[var(--ws-accent-hover)] disabled:opacity-60"
                 >
                   저장
                 </button>
                 <button
                   type="button"
                   className="h-10 rounded-full border border-[#dadce0] px-5 text-sm text-[#3c4043]"
-                  onClick={() => setShowPersonalForm(false)}
+                  onClick={closePersonalForm}
                 >
                   취소
                 </button>
@@ -765,10 +1079,9 @@ export default function EHubRedesign() {
           <div className="mb-6 rounded-[24px] border border-[#dbe7fb] bg-[#eef4ff] p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-[22px] font-medium tracking-[-0.02em] text-[#202124]">Company</div>
-                <p className="mt-1 text-sm text-[#5f6368]">
-                  관리자가 고정하는 전사 공통 메뉴입니다. 일반 사용자는 삭제·순서 변경이 불가하고, 관리자는 카드에서
-                  수정·삭제·순서(전체 탭⋮⋮ 드래그)를 바꿀 수 있습니다.
+                <div className="text-[22px] font-semibold text-[#202124]">Company</div>
+                <p className="mt-1 text-sm font-normal leading-reading text-[#5f6368]">
+                  관리자가 고정하는 전사 공통 메뉴입니다. 일반 사용자는 삭제·순서 변경이 불가합니다.
                 </p>
               </div>
               <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#1a73e8]">고정 메뉴</div>
@@ -777,7 +1090,7 @@ export default function EHubRedesign() {
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onCompanyDragEnd}>
             <SortableContext items={visibleCompany.map((s) => s.id)} strategy={rectSortingStrategy}>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {visibleCompany.map((site) => {
                   const isEditingCard = editingCompanyId === site.id;
                   return (
@@ -785,7 +1098,7 @@ export default function EHubRedesign() {
                       key={site.id}
                       id={site.id}
                       sortEnabled={companySortable && !isEditingCard}
-                      className="rounded-[24px] border border-[#dbe7fb] bg-white p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(60,64,67,0.2),0_4px_12px_rgba(60,64,67,0.12)]"
+                      className="flex h-full flex-col rounded-[24px] border border-[#dbe7fb] bg-white p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(60,64,67,0.2),0_4px_12px_rgba(60,64,67,0.12)]"
                     >
                       {(handle) =>
                         isEditingCard && isAdmin ? (
@@ -849,11 +1162,14 @@ export default function EHubRedesign() {
                                   >
                                     {siteTitleEmoji(site.title, "company")}
                                   </div>
-                                  <div className="min-w-0">
-                                    <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#202124]">
+                                  <div className="min-w-0 flex-1">
+                                    <h3
+                                      className="truncate text-[20px] font-medium leading-tight text-[#202124]"
+                                      title={site.title}
+                                    >
                                       {site.title}
                                     </h3>
-                                    <p className="mt-1 max-w-[180px] truncate text-sm text-[#5f6368]">
+                                    <p className="mt-1 max-w-[180px] truncate text-sm font-normal leading-reading text-[#5f6368]">
                                       {site.domain}
                                     </p>
                                   </div>
@@ -885,16 +1201,36 @@ export default function EHubRedesign() {
                                 </div>
                               )}
                             </div>
-                            <p className="min-h-[44px] text-sm leading-6 text-[#5f6368]">{site.description}</p>
-                            <button
-                              type="button"
-                              data-testid={`open-${site.id}`}
-                              disabled={!isLoggedIn}
-                              className="mt-6 h-11 w-full rounded-full bg-[#1a73e8] text-sm font-medium text-white transition hover:bg-[#1765cc] disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => openSite(site.domain)}
-                            >
-                              열기
-                            </button>
+                            <p className="min-h-[44px] flex-1 text-sm font-normal leading-reading text-[#5f6368]">
+                              {site.description}
+                            </p>
+                            <div className="mt-auto pt-4">
+                              {isTeamLeaderWorkspaceSite(site.title, site.description) ? (
+                                <div className="mb-2 flex justify-start">
+                                  <span
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-amber-900"
+                                    aria-label="팀장 전용"
+                                  >
+                                    <span
+                                      className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-200 text-[10px] leading-none text-amber-900"
+                                      aria-hidden
+                                    >
+                                      ✓
+                                    </span>
+                                    팀장용
+                                  </span>
+                                </div>
+                              ) : null}
+                              <button
+                                type="button"
+                                data-testid={`open-${site.id}`}
+                                disabled={!isLoggedIn}
+                                className="h-11 w-full rounded-full bg-[#1a73e8] text-sm font-medium text-white transition hover:bg-[#1765cc] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => openSite(site.domain)}
+                              >
+                                열기
+                              </button>
+                            </div>
                           </>
                         )
                       }
@@ -905,33 +1241,38 @@ export default function EHubRedesign() {
             </SortableContext>
           </DndContext>
 
-          <div className="mt-10 mb-6 rounded-[24px] border border-[#e8eaed] bg-white p-5">
-            <div className="flex items-center justify-between gap-4">
+          <div className="mt-10 mb-6 rounded-[24px] border border-[var(--ws-card-border)] bg-[var(--ws-card-bg)] p-5 shadow-[0_1px_2px_rgba(47,58,69,0.04)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-[22px] font-medium tracking-[-0.02em] text-[#202124]">My Workspace</div>
-                <p className="mt-1 text-sm text-[#5f6368]">
-                  직원마다 다르게 추가하는 개인 커스텀 링크 영역입니다. 추가·삭제·순서(전체 탭⋮⋮ 드래그)를 바꿀 수 있습니다.
+                <div className="workspace-title">My Workspace</div>
+                <p className="mt-1 text-sm font-normal leading-reading text-[var(--ws-text-sub)]">
+                  직원마다 다르게 추가하는 개인 커스텀 링크 영역입니다.
                 </p>
               </div>
-              <button
-                type="button"
-                className="h-10 rounded-full bg-[#1a73e8] px-4 text-sm font-medium text-white transition hover:bg-[#1765cc]"
-                onClick={openAddPersonal}
-              >
-                + 내 링크 추가
-              </button>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <span className="rounded-full border border-[var(--ws-accent)]/35 bg-[color-mix(in_srgb,var(--ws-accent)_10%,var(--ws-card-bg))] px-3 py-1 text-xs font-medium text-[var(--ws-accent)]">
+                  개인 링크
+                </span>
+                <button
+                  type="button"
+                  className="h-10 rounded-full bg-[var(--ws-btn-bg)] px-4 text-sm font-medium text-[var(--ws-btn-text)] transition hover:bg-[var(--ws-accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ws-accent)]/35"
+                  onClick={openAddPersonal}
+                >
+                  + 내 링크 추가
+                </button>
+              </div>
             </div>
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onPersonalDragEnd}>
             <SortableContext items={visiblePersonal.map((s) => s.id)} strategy={rectSortingStrategy}>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {visiblePersonal.map((site) => (
                   <SortableItem
                     key={site.id}
                     id={site.id}
                     sortEnabled={personalSortable}
-                    className="rounded-[24px] border border-[#e8eaed] bg-white p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_12px_rgba(60,64,67,0.15)]"
+                    className="flex h-full flex-col rounded-[24px] border border-[var(--ws-card-border)] bg-[var(--ws-card-bg)] p-5 transition hover:-translate-y-[2px] hover:shadow-[0_1px_3px_rgba(47,58,69,0.08),0_4px_12px_rgba(47,58,69,0.06)]"
                   >
                     {(handle) => (
                       <>
@@ -940,16 +1281,19 @@ export default function EHubRedesign() {
                             {handle}
                             <div className="flex min-w-0 flex-1 items-start gap-4">
                               <div
-                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1f3f4] text-[26px] leading-none"
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--ws-bg)] text-[26px] leading-none"
                                 aria-hidden
                               >
                                 {siteTitleEmoji(site.title, "personal")}
                               </div>
-                              <div className="min-w-0">
-                                <h3 className="text-[20px] font-medium tracking-[-0.02em] text-[#202124]">
+                              <div className="min-w-0 flex-1">
+                                <h3
+                                  className="truncate text-[20px] font-medium leading-tight text-[var(--ws-text-main)]"
+                                  title={site.title}
+                                >
                                   {site.title}
                                 </h3>
-                                <p className="mt-1 max-w-[180px] truncate text-sm text-[#5f6368]">
+                                <p className="mt-1 max-w-[180px] truncate text-sm font-normal leading-reading text-[var(--ws-text-sub)]">
                                   {site.domain}
                                 </p>
                               </div>
@@ -967,16 +1311,20 @@ export default function EHubRedesign() {
                             </button>
                             <button
                               type="button"
-                              className="transition hover:text-[#5f6368]"
-                              title="편집(준비 중)"
-                              disabled
+                              className="transition hover:text-[#5f6368] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label="내 링크 수정"
+                              title="수정"
+                              disabled={!isLoggedIn}
+                              onClick={() => openEditPersonal(site)}
                             >
                               ✎
                             </button>
                             <button
                               type="button"
-                              className="transition hover:text-[#d93025]"
-                              aria-label="삭제"
+                              className="transition hover:text-[#d93025] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label="내 링크 삭제"
+                              title="삭제"
+                              disabled={!isLoggedIn}
                               onClick={() => void onDeletePersonal(site)}
                             >
                               ✕
@@ -984,21 +1332,41 @@ export default function EHubRedesign() {
                           </div>
                         </div>
 
-                        <div className="mb-4 inline-flex rounded-full bg-[#e8f0fe] px-3 py-1 text-xs font-medium text-[#1a73e8]">
+                        <div className="mb-4 inline-flex rounded-full border border-[var(--ws-accent)]/30 bg-[color-mix(in_srgb,var(--ws-accent)_10%,var(--ws-card-bg))] px-3 py-1 text-xs font-medium text-[var(--ws-accent)]">
                           개인 링크
                         </div>
 
-                        <p className="min-h-[44px] text-sm leading-6 text-[#5f6368]">{site.description}</p>
+                        <p className="min-h-[44px] flex-1 text-sm font-normal leading-reading text-[var(--ws-text-sub)]">
+                          {site.description}
+                        </p>
 
-                        <button
-                          type="button"
-                          data-testid={`open-${site.id}`}
-                          disabled={!isLoggedIn}
-                          className="mt-6 h-11 w-full rounded-full border border-[#dadce0] bg-white text-sm font-medium text-[#1a73e8] transition hover:bg-[#f8f9fa] disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => openSite(site.domain)}
-                        >
-                          열기
-                        </button>
+                        <div className="mt-auto pt-4">
+                          {isTeamLeaderWorkspaceSite(site.title, site.description) ? (
+                            <div className="mb-2 flex justify-start">
+                              <span
+                                className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-amber-900"
+                                aria-label="팀장 전용"
+                              >
+                                <span
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-200 text-[10px] leading-none text-amber-900"
+                                  aria-hidden
+                                >
+                                  ✓
+                                </span>
+                                팀장용
+                              </span>
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            data-testid={`open-${site.id}`}
+                            disabled={!isLoggedIn}
+                            className="h-11 w-full rounded-full bg-[var(--ws-btn-bg)] text-sm font-medium text-[var(--ws-btn-text)] transition hover:bg-[var(--ws-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => openSite(site.domain)}
+                          >
+                            열기
+                          </button>
+                        </div>
                       </>
                     )}
                   </SortableItem>

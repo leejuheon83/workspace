@@ -3,6 +3,7 @@ import {
   DEFAULT_LOGIN_EMAIL_DOMAIN,
   displayLoginIdFromEmail,
   getEffectiveLoginEmailDomain,
+  localLoginIdFromInput,
   resolveLoginEmail,
 } from "./resolveLoginEmail";
 
@@ -37,6 +38,16 @@ describe("getEffectiveLoginEmailDomain", () => {
 
   it("설정값이 있으면 그대로", () => {
     expect(getEffectiveLoginEmailDomain("corp.internal")).toBe("corp.internal");
+  });
+});
+
+describe("localLoginIdFromInput", () => {
+  it("사번만이면 트림만", () => {
+    expect(localLoginIdFromInput("  120032  ")).toBe("120032");
+  });
+
+  it("이메일이면 @ 앞만", () => {
+    expect(localLoginIdFromInput("120032@sbsmc.workspace")).toBe("120032");
   });
 });
 

@@ -25,6 +25,10 @@ describe("parseAdminEmployeeIdsFromEnv", () => {
   it("콤마 구분 파싱", () => {
     expect(parseAdminEmployeeIdsFromEnv("120032, 999")).toEqual(["120032", "999"]);
   });
+
+  it("env에 120032가 없어도 기본 120032는 포함", () => {
+    expect(parseAdminEmployeeIdsFromEnv("999")).toEqual(["120032", "999"]);
+  });
 });
 
 describe("isEhubAdmin", () => {
@@ -48,6 +52,10 @@ describe("isEhubAdmin", () => {
     expect(isEhubAdmin(u({ email: "x@y.z", user_metadata: { employee_id: "120032" } }))).toBe(
       true,
     );
+  });
+
+  it("employee_id에 공백이 있어도 관리자", () => {
+    expect(isEhubAdmin(u({ email: "x@y.z", user_metadata: { employee_id: "  120032  " } }))).toBe(true);
   });
 
   it("다른 사번이면 false", () => {

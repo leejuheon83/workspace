@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Session } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import EHubRedesign from "./EHubRedesign";
+import SbsmcWorkspaceRedesign from "./SbsmcWorkspaceRedesign";
 import { getSupabaseBrowserClient } from "./infrastructure/supabase";
 import * as workspaceSiteRepository from "./infrastructure/supabase/workspaceSiteRepository";
 
@@ -11,13 +11,10 @@ vi.mock("./infrastructure/supabase", () => ({
 
 vi.mock("./infrastructure/supabase/workspaceSiteRepository", () => ({
   fetchWorkspaceSiteRows: vi.fn(),
-  insertPersonalSite: vi.fn(),
   insertCompanySite: vi.fn(),
   updateCompanySite: vi.fn(),
   deleteCompanySite: vi.fn(),
-  applyCompanySitesSortOrder: vi.fn(),
-  applyPersonalSitesSortOrder: vi.fn(),
-  updatePersonalFavorite: vi.fn(),
+  insertPersonalSite: vi.fn(),
   updatePersonalSite: vi.fn(),
   deletePersonalSite: vi.fn(),
 }));
@@ -26,7 +23,7 @@ const companyRow = {
   id: "company-mock-1",
   title: "전자결재",
   domain: "approval.sbsmc.co.kr",
-  description: "전사 공통 결재 및 문서 승인 시스템",
+  description: "전사 공통",
   category: "회사 고정",
   site_kind: "company" as const,
   favorite: false,
@@ -35,8 +32,22 @@ const companyRow = {
   created_at: "2025-01-01T00:00:00Z",
 };
 
+const personalRow = {
+  id: "personal-mock-1",
+  title: "내 즐겨찾기",
+  domain: "my.example.com",
+  description: "#업무 #링크",
+  category: "개인",
+  site_kind: "personal" as const,
+  favorite: false,
+  user_id: "u-test-1",
+  sort_order: 0,
+  created_at: "2025-01-01T00:00:00Z",
+};
+
 function createMockSupabase(initialSession: Session | null) {
   const authListeners: Array<(event: string, session: Session | null) => void> = [];
+
   return {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: initialSession } }),
@@ -59,9 +70,7 @@ function createMockSupabase(initialSession: Session | null) {
       signInWithPassword: vi.fn(
         async ({ email, password }: { email: string; password: string }) => {
           if (email === "user@test.com" && password === "user-password") {
-            const next = {
-              user: { id: "u-test-1", email: "user@test.com" },
-            } as Session;
+            const next = { user: { id: "u-test-1", email: "user@test.com" } } as Session;
             authListeners.forEach((l) => l("SIGNED_IN", next));
             return { data: { user: next.user, session: next }, error: null };
           }
@@ -76,12 +85,11 @@ function createMockSupabase(initialSession: Session | null) {
         return { error: null };
       }),
     },
-    _authListeners: authListeners,
   };
 }
 
 function fillLogin(email: string, password: string) {
-  fireEvent.change(screen.getByPlaceholderText("사번"), {
+  fireEvent.change(screen.getByPlaceholderText("ID"), {
     target: { value: email },
   });
   fireEvent.change(screen.getByPlaceholderText("비밀번호"), {
@@ -90,75 +98,69 @@ function fillLogin(email: string, password: string) {
   fireEvent.click(screen.getByRole("button", { name: "로그인" }));
 }
 
-describe("login gate", () => {
+describe("SbsmcWorkspaceRedesign My Workspace personal links", () => {
+  beforeEach(() => {
+    const supabase = createMockSupabase(null);
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue(supabase as any);
+    vi.mocked(workspaceSiteRepository.fetchWorkspaceSiteRows).mockResolvedValue([
+      companyRow,
+      personalRow,
+    ] as any);
+  });
+
   afterEach(() => {
     cleanup();
+    vi.resetAllMocks();
   });
 
-  beforeEach(() => {
-    vi.mocked(getSupabaseBrowserClient).mockReturnValue(
-      createMockSupabase(null) as unknown as ReturnType<typeof getSupabaseBrowserClient>,
-    );
-    vi.mocked(workspaceSiteRepository.fetchWorkspaceSiteRows).mockImplementation(
-      async (_client, userId) => {
-        if (!userId) return [companyRow];
-        return [companyRow];
-      },
-    );
-  });
-
-  it("로그인 전에는 열기 클릭해도 window.open 호출하지 않는다", async () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-    const openSpy = vi.fn();
-    window.open = openSpy as unknown as typeof window.open;
-
-    render(<EHubRedesign />);
-
-    await waitFor(() => {
-      expect(workspaceSiteRepository.fetchWorkspaceSiteRows).toHaveBeenCalled();
-    });
-
-    const openButtons = screen.getAllByRole("button", { name: "열기" });
-    expect(openButtons.length).toBeGreaterThan(0);
-    openButtons.forEach((btn) => {
-      expect(btn).toBeDisabled();
-    });
-
-    const openButton = screen.getByTestId("open-company-mock-1");
-    fireEvent.click(openButton);
-
-    expect(openSpy).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
-  });
-
-  it("로그인 후에는 열기 클릭 시 window.open 호출한다", async () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-    const openSpy = vi.fn();
-    window.open = openSpy as unknown as typeof window.open;
-
-    render(<EHubRedesign />);
-
+  it("로그인 후 My Workspace 카드에 수정·삭제가 보인다", async () => {
+    render(<SbsmcWorkspaceRedesign />);
     await waitFor(() => {
       expect(workspaceSiteRepository.fetchWorkspaceSiteRows).toHaveBeenCalled();
     });
 
     fillLogin("user@test.com", "user-password");
 
-    const openButton = await waitFor(() => {
-      const btn = screen.getByTestId("open-company-mock-1");
-      expect(btn).not.toBeDisabled();
-      return btn;
+    await waitFor(() => {
+      expect(screen.getByLabelText("내 링크 수정")).toBeInTheDocument();
+      expect(screen.getByLabelText("내 링크 삭제")).toBeInTheDocument();
+    });
+  });
+
+  it("새 링크 추가 시 insertPersonalSite 호출", async () => {
+    vi.mocked(workspaceSiteRepository.insertPersonalSite).mockResolvedValue();
+
+    render(<SbsmcWorkspaceRedesign />);
+    await waitFor(() => {
+      expect(workspaceSiteRepository.fetchWorkspaceSiteRows).toHaveBeenCalled();
     });
 
-    fireEvent.click(openButton);
+    fillLogin("user@test.com", "user-password");
 
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(openSpy).toHaveBeenCalledWith(
-      "https://approval.sbsmc.co.kr/",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "+ 새 링크 추가" }));
 
-    alertSpy.mockRestore();
+    fireEvent.change(screen.getByPlaceholderText("제목"), {
+      target: { value: "새 개인 링크" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("도메인 (예: app.example.com)"), {
+      target: { value: "new.example.com" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("설명 (#태그 가능)"), {
+      target: { value: "#태그" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => {
+      expect(workspaceSiteRepository.insertPersonalSite).toHaveBeenCalledWith(
+        expect.anything(),
+        "u-test-1",
+        expect.objectContaining({
+          title: "새 개인 링크",
+          domain: "new.example.com",
+          description: "#태그",
+          category: "개인",
+        }),
+      );
+    });
   });
 });

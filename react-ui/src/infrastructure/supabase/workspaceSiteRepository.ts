@@ -140,6 +140,33 @@ export async function updatePersonalFavorite(
   }
 }
 
+export async function updatePersonalSite(
+  client: SupabaseClient,
+  userId: string,
+  siteId: string,
+  input: { title: string; domain: string; description: string; category: string },
+): Promise<void> {
+  const { data, error } = await client
+    .from(TABLE)
+    .update({
+      title: input.title.trim(),
+      domain: input.domain.trim(),
+      description: input.description.trim(),
+      category: input.category,
+    })
+    .eq("id", siteId)
+    .eq("site_kind", "personal")
+    .eq("user_id", userId)
+    .select("id");
+
+  if (error) {
+    throw error;
+  }
+  if (!data?.length) {
+    throw new Error("개인 링크를 수정할 수 없습니다.");
+  }
+}
+
 export async function deletePersonalSite(
   client: SupabaseClient,
   siteId: string,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { deleteCompanySite, updateCompanySite } from "./workspaceSiteRepository";
+import { deleteCompanySite, updateCompanySite, updatePersonalSite } from "./workspaceSiteRepository";
 
 function mockChainDelete(result: { data: unknown[] | null; error: unknown }) {
   const select = vi.fn(() => Promise.resolve(result));
@@ -17,6 +17,16 @@ function mockChainUpdate(result: { data: unknown[] | null; error: unknown }) {
   const update = vi.fn(() => ({ eq: eqId }));
   const from = vi.fn(() => ({ update }));
   return { client: { from } as never, from };
+}
+
+function mockChainPersonalUpdate(result: { data: unknown[] | null; error: unknown }) {
+  const select = vi.fn(() => Promise.resolve(result));
+  const eqUser = vi.fn(() => ({ select }));
+  const eqKind = vi.fn(() => ({ eq: eqUser }));
+  const eqId = vi.fn(() => ({ eq: eqKind }));
+  const update = vi.fn(() => ({ eq: eqId }));
+  const from = vi.fn(() => ({ update }));
+  return { client: { from } as never };
 }
 
 describe("workspaceSiteRepository company admin", () => {
@@ -37,5 +47,17 @@ describe("workspaceSiteRepository company admin", () => {
         category: "회사 고정",
       }),
     ).rejects.toThrow("회사 고정 메뉴를 수정할 수 없습니다");
+  });
+
+  it("updatePersonalSite: 본인 링크가 아니면 오류를 던진다", async () => {
+    const { client } = mockChainPersonalUpdate({ data: [], error: null });
+    await expect(
+      updatePersonalSite(client, "user-1", "00000000-0000-0000-0000-000000000010", {
+        title: "개인",
+        domain: "example.com",
+        description: "",
+        category: "개인",
+      }),
+    ).rejects.toThrow("개인 링크를 수정할 수 없습니다");
   });
 });

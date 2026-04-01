@@ -1,3 +1,7 @@
-supabase
+# Reduce Vercel CLI upload size (root-linked projects)
 react-ui/node_modules
-**/.env.local
+node_modules
+supabase/.temp
+.cursor
+**/.cursor/**
+*.xlsx

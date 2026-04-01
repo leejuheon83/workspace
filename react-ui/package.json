@@ -9,8 +9,11 @@
     "preview": "vite preview",
     "deploy:vercel": "npx vercel",
     "deploy:vercel:prod": "npx vercel --prod",
+    "vercel:link": "npx vercel link",
+    "vercel:env-pull": "npx vercel env pull .env.local",
     "test": "vitest",
     "gen:login-xlsx": "node scripts/gen-workspace-login-xlsx.mjs",
+    "gen:employee-json": "node scripts/excel-to-employee-directory.mjs",
     "auth:bulk-same-password": "node scripts/createAuthUsersPasswordEqualsId.mjs",
     "auth:sync-credentials": "node scripts/syncAuthUsersFromCredentials.mjs",
     "auth:sync-credentials:cli": "node scripts/runSyncAuthViaSupabaseCli.mjs"

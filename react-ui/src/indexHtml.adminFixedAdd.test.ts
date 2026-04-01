@@ -78,5 +78,34 @@ describe("admin fixed site add", () => {
     expect(added.cat).toBe("회사");
     expect(added.url).toBe("https://example.com");
   });
+
+  it("admin id 120032 로그인에서는 '회사' 카테고리 추가가 저장된다", () => {
+    const dom = loadRootIndexHtml();
+
+    dom.window.localStorage.clear();
+
+    const alertSpy = vi.spyOn(dom.window, "alert").mockImplementation(() => {});
+    alertSpy.mockClear();
+
+    setInput(dom, "loginId", "120032");
+    setInput(dom, "loginPassword", "120032");
+    dom.window.handleLogin({ preventDefault() {} } as any);
+
+    setInput(dom, "fName", "FixedAdminAllowedBy120032");
+    setInput(dom, "fUrl", "example.com");
+    setSelectValue(dom, "fCat", "회사");
+    setInput(dom, "fMemo", "memo");
+
+    dom.window.submitSiteForm();
+
+    const raw = dom.window.localStorage.getItem("sbs-ehub-sites-v1");
+    expect(raw).not.toBeNull();
+
+    const parsed = JSON.parse(raw || "{}");
+    const added = (parsed.sites as any[]).find((s) => s.name === "FixedAdminAllowedBy120032");
+    expect(added).toBeTruthy();
+    expect(added.cat).toBe("회사");
+    expect(added.url).toBe("https://example.com");
+  });
 });
 

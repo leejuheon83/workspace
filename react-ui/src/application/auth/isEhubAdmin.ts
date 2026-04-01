@@ -2,16 +2,24 @@ import type { User } from "@supabase/supabase-js";
 
 const DEFAULT_ADMIN_EMPLOYEE_IDS = ["120032"];
 
-/** 콤마 구분. 비우면 기본 관리자 사번 120032 만 사용. */
+/**
+ * 콤마 구분.
+ * - env가 비어있으면 기본 관리자 `120032`만 사용
+ * - env에 값이 있더라도 기본 `120032`는 항상 포함
+ */
 export function parseAdminEmployeeIdsFromEnv(
   envValue: string | undefined,
 ): string[] {
   const raw = envValue?.trim();
-  if (!raw) return [...DEFAULT_ADMIN_EMPLOYEE_IDS];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const fromEnv = raw
+    ? raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  // env가 있어도 기본 관리자 120032는 누락되지 않도록 합칩니다.
+  return Array.from(new Set([...DEFAULT_ADMIN_EMPLOYEE_IDS, ...fromEnv]));
 }
 
 function adminIdSet(): Set<string> {
@@ -38,7 +46,10 @@ export function isEhubAdmin(user: User | null | undefined): boolean {
   if (local && admins.has(local)) return true;
 
   const emp = meta?.employee_id;
-  if (typeof emp === "string" && admins.has(emp)) return true;
+  if (typeof emp === "string") {
+    const id = emp.trim();
+    if (admins.has(id)) return true;
+  }
   if (typeof emp === "number" && admins.has(String(emp))) return true;
 
   return false;
