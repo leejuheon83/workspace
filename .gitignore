@@ -45,3 +45,4 @@ serviceAccount*.json
 workspace_로그인정보.xlsx
 workspace_로그인정보_새로생성.xlsx
 
+.vercel
