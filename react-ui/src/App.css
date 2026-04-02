@@ -517,6 +517,14 @@ body {
   background: #F0FDF9;
 }
 
+.empty-card:focus-visible {
+  outline: 2px solid #93C5FD;
+  outline-offset: 2px;
+}
+.empty-card-personal:focus-visible {
+  outline-color: #6EE7B7;
+}
+
 .empty-plus { font-size: 22px; line-height: 1; }
 .empty-text { font-size: 12px; font-weight: 500; }
 

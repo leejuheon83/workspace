@@ -140,6 +140,32 @@ describe("App reconnected runtime behaviors", () => {
     });
   });
 
+  it("관리자가 Company 영역 메뉴 추가 카드를 누르면 고정 메뉴 추가 모달이 열린다", async () => {
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue(
+      createMockSupabase({ user: { id: "u-admin-1", email: "120032@sbsmc.workspace" } } as Session) as any,
+    );
+    render(<App />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "고정 메뉴 추가 (카드)" })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "고정 메뉴 추가 (카드)" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("고정 메뉴 추가")).toBeInTheDocument();
+  });
+
+  it("일반 로그인 후 My Workspace 메뉴 추가 카드를 누르면 개인 링크 추가 모달이 열린다", async () => {
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue(
+      createMockSupabase({ user: { id: "u-test-1", email: "111111@sbsmc.workspace" } } as Session) as any,
+    );
+    render(<App />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "개인 링크 추가 (카드)" })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "개인 링크 추가 (카드)" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("개인 링크 추가")).toBeInTheDocument();
+  });
+
   it("메모장 열기 버튼 클릭 시 개인 메모장이 토글된다", async () => {
     vi.mocked(getSupabaseBrowserClient).mockReturnValue(
       createMockSupabase({ user: { id: "u-test-1", email: "111111@sbsmc.workspace" } } as Session) as any,

@@ -132,9 +132,29 @@ function CardItem({
   );
 }
 
-function EmptyCard({ variant = "company" }: { variant?: "company" | "personal" }) {
+function EmptyCard({
+  variant = "company",
+  onClick,
+}: {
+  variant?: "company" | "personal";
+  onClick?: () => void;
+}) {
+  const label = variant === "personal" ? "개인 링크 추가" : "고정 메뉴 추가";
   return (
-    <div className={`empty-card ${variant === "personal" ? "empty-card-personal" : ""}`}>
+    <div
+      className={`empty-card ${variant === "personal" ? "empty-card-personal" : ""}`}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `${label} (카드)` : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (!onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
       <span className="empty-plus">+</span>
       <span className="empty-text">메뉴 추가</span>
     </div>
@@ -527,7 +547,7 @@ function AppWithSupabase() {
               onDelete={() => void onDeleteCompany(companySites.find((s) => s.id === card.id)!)}
             />
           ))}
-          {isAdmin ? <EmptyCard variant="company" /> : null}
+          {isAdmin ? <EmptyCard variant="company" onClick={openAddCompany} /> : null}
         </div>
       </div>
 
@@ -564,7 +584,7 @@ function AppWithSupabase() {
               onDelete={() => void onDeletePersonal(personalSites.find((s) => s.id === card.id)!)}
             />
           ))}
-          {isLoggedIn ? <EmptyCard variant="personal" /> : null}
+          {isLoggedIn ? <EmptyCard variant="personal" onClick={openAddPersonal} /> : null}
         </div>
       </div>
 
