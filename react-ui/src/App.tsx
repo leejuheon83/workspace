@@ -1,10 +1,27 @@
 import type { Session } from "@supabase/supabase-js";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { FormEvent, useCallback, useEffect, useMemo, useState, type PointerEvent, type ReactNode } from "react";
 import "./App.css";
 import ModalDialog from "./components/ModalDialog";
 import PersonalNotepadPanel from "./components/PersonalNotepadPanel";
 import SupabaseEnvMissingNotice from "./components/SupabaseEnvMissingNotice";
 import { mapWorkspaceSiteRows } from "./application/workspaceSites/mapWorkspaceSiteRows";
+import { reorderSiteIds } from "./application/workspaceSites/reorderSiteIds";
 import { isTeamLeaderWorkspaceSite } from "./application/workspaceSites/isTeamLeaderSite";
 import { siteTitleEmoji } from "./application/workspaceSites/siteTitleEmoji";
 import { resolveSiteUrl } from "./application/workspaceSites/resolveSiteUrl";
@@ -15,6 +32,8 @@ import {
 import { isEhubAdmin } from "./application/auth/isEhubAdmin";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "./infrastructure/supabase";
 import {
+  applyCompanySitesSortOrder,
+  applyPersonalSitesSortOrder,
   deleteCompanySite,
   deletePersonalSite,
   fetchWorkspaceSiteRows,
@@ -73,20 +92,28 @@ function displayHost(rawUrl: string): string {
   }
 }
 
+function blockParentDrag(e: PointerEvent) {
+  e.stopPropagation();
+}
+
 function CardItem({
   card,
   variant = "company",
   onOpen,
   onEdit,
   onDelete,
+  isolatePointerForParentDrag = false,
 }: {
   card: MenuCard;
   variant?: "company" | "personal";
   onOpen: (url: string) => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** true면 카드 바깥(정렬 래퍼)으로 포인터 이벤트가 올라가지 않아 버튼·열기와 드래그가 충돌하지 않음 */
+  isolatePointerForParentDrag?: boolean;
 }) {
   const isPersonal = variant === "personal";
+  const block = isolatePointerForParentDrag ? blockParentDrag : undefined;
 
   return (
     <div className={`card ${isPersonal ? "card-personal" : "card-company"}`}>
@@ -95,7 +122,7 @@ function CardItem({
           <div className={`card-icon ${isPersonal ? "card-icon-personal" : "card-icon-company"}`}>
             {card.icon}
           </div>
-          <div className="card-controls">
+          <div className="card-controls" onPointerDown={block}>
             <button className="ctrl-btn" title="수정" onClick={onEdit}>
               ✏
             </button>
@@ -120,7 +147,7 @@ function CardItem({
         </div>
       </div>
 
-      <div className="card-footer">
+      <div className="card-footer" onPointerDown={block}>
         <button
           className={`open-btn ${isPersonal ? "open-btn-personal" : "open-btn-company"}`}
           onClick={() => onOpen(card.url)}
@@ -128,6 +155,30 @@ function CardItem({
           열기
         </button>
       </div>
+    </div>
+  );
+}
+
+function SortableCardWrap({ id, sortEnabled, children }: { id: string; sortEnabled: boolean; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: !sortEnabled,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.88 : undefined,
+    zIndex: isDragging ? 15 : undefined,
+  } as const;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={sortEnabled ? "card-drag-wrap" : undefined}
+      {...(sortEnabled ? { ...listeners, ...attributes } : {})}
+    >
+      {children}
     </div>
   );
 }
@@ -201,7 +252,7 @@ function AppWithSupabase() {
     [session],
   );
 
-  async function loadSites(userId: string | null) {
+  const loadSites = useCallback(async (userId: string | null) => {
     setSitesLoading(true);
     try {
       const supabase = getSupabaseBrowserClient();
@@ -212,7 +263,60 @@ function AppWithSupabase() {
     } finally {
       setSitesLoading(false);
     }
-  }
+  }, []);
+
+  const companySearchActive = search.trim().length > 0;
+  const companySortEnabled = isAdmin && !companySearchActive;
+  const personalSortEnabled = isLoggedIn;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const onCompanyDragEnd = useCallback(
+    (e: DragEndEvent) => {
+      if (!companySortEnabled || !session?.user?.id) return;
+      const { active, over } = e;
+      if (!over || active.id === over.id) return;
+      const ids = companySites.map((s) => s.id);
+      const nextIds = reorderSiteIds(ids, String(active.id), String(over.id));
+      const reordered = nextIds.map((id) => companySites.find((s) => s.id === id)!);
+      setCompanySites(reordered);
+      void (async () => {
+        try {
+          const supabase = getSupabaseBrowserClient();
+          await applyCompanySitesSortOrder(supabase, nextIds);
+        } catch {
+          alert("회사 메뉴 순서를 저장하지 못했습니다.");
+          await loadSites(session.user.id);
+        }
+      })();
+    },
+    [companySortEnabled, session?.user?.id, companySites, loadSites],
+  );
+
+  const onPersonalDragEnd = useCallback(
+    (e: DragEndEvent) => {
+      if (!personalSortEnabled || !session?.user?.id) return;
+      const { active, over } = e;
+      if (!over || active.id === over.id) return;
+      const ids = personalSites.map((s) => s.id);
+      const nextIds = reorderSiteIds(ids, String(active.id), String(over.id));
+      const reordered = nextIds.map((id) => personalSites.find((s) => s.id === id)!);
+      setPersonalSites(reordered);
+      void (async () => {
+        try {
+          const supabase = getSupabaseBrowserClient();
+          await applyPersonalSitesSortOrder(supabase, session.user.id, nextIds);
+        } catch {
+          alert("개인 링크 순서를 저장하지 못했습니다.");
+          await loadSites(session.user.id);
+        }
+      })();
+    },
+    [personalSortEnabled, session?.user?.id, personalSites, loadSites],
+  );
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -233,7 +337,7 @@ function AppWithSupabase() {
 
   useEffect(() => {
     void loadSites(session?.user.id ?? null);
-  }, [session?.user.id]);
+  }, [session?.user.id, loadSites]);
 
   async function onLoginSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -537,17 +641,42 @@ function AppWithSupabase() {
 
         <div className="card-grid">
           {sitesLoading ? <div className="section-sub">불러오는 중...</div> : null}
-          {filteredCompany.map((card) => (
-            <CardItem
-              key={card.id}
-              card={card}
-              variant="company"
-              onOpen={onOpen}
-              onEdit={() => openEditCompany(companySites.find((s) => s.id === card.id)!)}
-              onDelete={() => void onDeleteCompany(companySites.find((s) => s.id === card.id)!)}
-            />
-          ))}
-          {isAdmin ? <EmptyCard variant="company" onClick={openAddCompany} /> : null}
+          {companySortEnabled ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onCompanyDragEnd}>
+              <SortableContext items={companySites.map((s) => s.id)} strategy={rectSortingStrategy}>
+                {companySites.map((site) => {
+                  const card = toCompanyCard(site);
+                  return (
+                    <SortableCardWrap key={site.id} id={site.id} sortEnabled>
+                      <CardItem
+                        card={card}
+                        variant="company"
+                        onOpen={onOpen}
+                        onEdit={() => openEditCompany(site)}
+                        onDelete={() => void onDeleteCompany(site)}
+                        isolatePointerForParentDrag
+                      />
+                    </SortableCardWrap>
+                  );
+                })}
+              </SortableContext>
+              {isAdmin ? <EmptyCard variant="company" onClick={openAddCompany} /> : null}
+            </DndContext>
+          ) : (
+            <>
+              {filteredCompany.map((card) => (
+                <CardItem
+                  key={card.id}
+                  card={card}
+                  variant="company"
+                  onOpen={onOpen}
+                  onEdit={() => openEditCompany(companySites.find((s) => s.id === card.id)!)}
+                  onDelete={() => void onDeleteCompany(companySites.find((s) => s.id === card.id)!)}
+                />
+              ))}
+              {isAdmin ? <EmptyCard variant="company" onClick={openAddCompany} /> : null}
+            </>
+          )}
         </div>
       </div>
 
@@ -574,17 +703,41 @@ function AppWithSupabase() {
         </div>
 
         <div className="card-grid" style={{ padding: "18px 24px 24px" }}>
-          {personalCards.map((card) => (
-            <CardItem
-              key={card.id}
-              card={card}
-              variant="personal"
-              onOpen={onOpen}
-              onEdit={() => openEditPersonal(personalSites.find((s) => s.id === card.id)!)}
-              onDelete={() => void onDeletePersonal(personalSites.find((s) => s.id === card.id)!)}
-            />
-          ))}
-          {isLoggedIn ? <EmptyCard variant="personal" onClick={openAddPersonal} /> : null}
+          {personalSortEnabled ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onPersonalDragEnd}>
+              <SortableContext items={personalSites.map((s) => s.id)} strategy={rectSortingStrategy}>
+                {personalSites.map((site) => {
+                  const card = toPersonalCard(site);
+                  return (
+                    <SortableCardWrap key={site.id} id={site.id} sortEnabled>
+                      <CardItem
+                        card={card}
+                        variant="personal"
+                        onOpen={onOpen}
+                        onEdit={() => openEditPersonal(site)}
+                        onDelete={() => void onDeletePersonal(site)}
+                        isolatePointerForParentDrag
+                      />
+                    </SortableCardWrap>
+                  );
+                })}
+              </SortableContext>
+              <EmptyCard variant="personal" onClick={openAddPersonal} />
+            </DndContext>
+          ) : (
+            <>
+              {personalCards.map((card) => (
+                <CardItem
+                  key={card.id}
+                  card={card}
+                  variant="personal"
+                  onOpen={onOpen}
+                  onEdit={() => openEditPersonal(personalSites.find((s) => s.id === card.id)!)}
+                  onDelete={() => void onDeletePersonal(personalSites.find((s) => s.id === card.id)!)}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
 

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { deleteCompanySite, updateCompanySite, updatePersonalSite } from "./workspaceSiteRepository";
+import {
+  applyCompanySitesSortOrder,
+  deleteCompanySite,
+  updateCompanySite,
+  updatePersonalSite,
+} from "./workspaceSiteRepository";
 
 function mockChainDelete(result: { data: unknown[] | null; error: unknown }) {
   const select = vi.fn(() => Promise.resolve(result));
@@ -28,6 +33,25 @@ function mockChainPersonalUpdate(result: { data: unknown[] | null; error: unknow
   const from = vi.fn(() => ({ update }));
   return { client: { from } as never };
 }
+
+function mockChainCompanySortUpdate() {
+  const select = vi.fn(() => Promise.resolve({ data: [{ id: "x" }], error: null }));
+  const eqKind = vi.fn(() => ({ select }));
+  const eqId = vi.fn(() => ({ eq: eqKind }));
+  const update = vi.fn(() => ({ eq: eqId }));
+  const from = vi.fn(() => ({ update }));
+  return { client: { from } as never, update };
+}
+
+describe("workspaceSiteRepository applyCompanySitesSortOrder", () => {
+  it("각 id에 대해 sort_order를 인덱스로 갱신한다", async () => {
+    const { client, update } = mockChainCompanySortUpdate();
+    await applyCompanySitesSortOrder(client, ["a", "b"]);
+    expect(update).toHaveBeenCalledTimes(2);
+    const orders = update.mock.calls.map((c) => (c[0] as { sort_order: number }).sort_order).sort((x, y) => x - y);
+    expect(orders).toEqual([0, 1]);
+  });
+});
 
 describe("workspaceSiteRepository company admin", () => {
   it("deleteCompanySite: 삭제된 행이 없으면(RLS 등) 오류를 던진다", async () => {
